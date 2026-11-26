@@ -40,6 +40,7 @@ type Manager struct {
 	closedConnections       list.List[TrackerMetadata]
 	closedUploadTotal       int64
 	closedDownloadTotal     int64
+	closedSourceTraffic     map[SourceKey]sourceTraffic
 
 	eventSubscriber *observable.Subscriber[ConnectionEvent]
 	eventObserver   *observable.Observer[ConnectionEvent]
@@ -99,8 +100,7 @@ func (m *Manager) leave(tracker Tracker) {
 	metadataCopy := *metadata
 	if m.closedConnections.Len() >= closedConnectionsLimit {
 		evicted := m.closedConnections.PopFront()
-		m.closedUploadTotal += evicted.Upload.Load()
-		m.closedDownloadTotal += evicted.Download.Load()
+		m.foldClosed(&evicted)
 	}
 	m.closedConnections.PushBack(metadataCopy)
 	m.closedConnectionsAccess.Unlock()
@@ -176,8 +176,7 @@ func (m *Manager) Clear() {
 	m.closedConnectionsAccess.Lock()
 	defer m.closedConnectionsAccess.Unlock()
 	for element := m.closedConnections.Front(); element != nil; element = element.Next() {
-		m.closedUploadTotal += element.Value.Upload.Load()
-		m.closedDownloadTotal += element.Value.Download.Load()
+		m.foldClosed(&element.Value)
 	}
 	m.closedConnections.Init()
 }

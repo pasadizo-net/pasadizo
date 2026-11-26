@@ -47,12 +47,7 @@ func connectionsSnapshot(trafficManager *trafficcontrol.Manager) render.M {
 type connectionObject trafficcontrol.TrackerMetadata
 
 func (c connectionObject) MarshalJSON() ([]byte, error) {
-	var inbound string
-	if c.Metadata.Inbound != "" {
-		inbound = c.Metadata.InboundType + "/" + c.Metadata.Inbound
-	} else {
-		inbound = c.Metadata.InboundType
-	}
+	inbound := inboundName(c.Metadata.InboundType, c.Metadata.Inbound)
 	var domain string
 	if c.Metadata.Domain != "" {
 		domain = c.Metadata.Domain
@@ -102,6 +97,13 @@ func (c connectionObject) MarshalJSON() ([]byte, error) {
 		"rule":        rule,
 		"rulePayload": "",
 	})
+}
+
+func inboundName(inboundType string, inboundTag string) string {
+	if inboundTag != "" {
+		return inboundType + "/" + inboundTag
+	}
+	return inboundType
 }
 
 func getConnections(ctx context.Context, trafficManager *trafficcontrol.Manager) func(w http.ResponseWriter, r *http.Request) {
