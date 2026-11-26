@@ -40,6 +40,7 @@
 | `selector`     | [Selector](./selector/)         |
 | `urltest`      | [URLTest](./urltest/)           |
 | `loadbalance`  | [LoadBalance](./loadbalance/)   |
+| `fallback`     | [Fallback](./fallback/)         |
 | `naive`        | [NaiveProxy](./naive/)          |
 
 #### tag

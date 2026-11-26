@@ -208,6 +208,7 @@ nav:
           - Selector: configuration/outbound/selector.md
           - URLTest: configuration/outbound/urltest.md
           - LoadBalance: configuration/outbound/loadbalance.md
+          - Fallback: configuration/outbound/fallback.md
       - Service:
           - configuration/service/index.md
           - sing-box API: configuration/service/api.md

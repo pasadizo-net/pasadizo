@@ -52,6 +52,7 @@ const (
 	TypeSelector    = "selector"
 	TypeURLTest     = "urltest"
 	TypeLoadBalance = "loadbalance"
+	TypeFallback    = "fallback"
 )
 
 const (
@@ -133,6 +134,8 @@ func ProxyDisplayName(proxyType string) string {
 		return "URLTest"
 	case TypeLoadBalance:
 		return "LoadBalance"
+	case TypeFallback:
+		return "Fallback"
 	default:
 		return "Unknown"
 	}

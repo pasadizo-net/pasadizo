@@ -50,6 +50,7 @@ type URLTest struct {
 	group                        *URLTestGroup
 	checkAccess                  sync.Mutex
 	interruptExternalConnections bool
+	fallback                     *fallbackStrategy
 }
 
 func NewURLTest(ctx context.Context, router adapter.Router, logger log.ContextLogger, tag string, options option.URLTestOutboundOptions) (adapter.Outbound, error) {
@@ -91,6 +92,7 @@ func (s *URLTest) Start(stage adapter.StartStage, scope *adapter.Scope) error {
 		if err != nil {
 			return err
 		}
+		group.fallback = s.fallback
 		s.group = group
 	case adapter.StartStateStarted:
 		s.group.PostStart()
@@ -246,6 +248,7 @@ type URLTestGroup struct {
 	started                      atomic.Bool
 	closed                       atomic.Bool
 	lastActive                   common.TypedValue[time.Time]
+	fallback                     *fallbackStrategy
 }
 
 func NewURLTestGroup(ctx context.Context, outboundManager adapter.OutboundManager, logger log.Logger, outbounds []adapter.Outbound, link string, interval time.Duration, tolerance uint16, idleTimeout time.Duration, interruptExternalConnections bool) (*URLTestGroup, error) {
@@ -326,6 +329,9 @@ func (g *URLTestGroup) Close() error {
 }
 
 func (g *URLTestGroup) Select(network string) (adapter.Outbound, bool) {
+	if g.fallback != nil {
+		return g.fallback.selectOutbound(g, network)
+	}
 	var minDelay uint16
 	var minOutbound adapter.Outbound
 	var selectedOutbound adapter.Outbound
@@ -408,6 +414,9 @@ func (g *URLTestGroup) urlTest(ctx context.Context, force bool) (map[string]uint
 	result := urlTestOutbounds(ctx, g.outbound, g.history, g.logger, g.outbounds, g.link, g.interval, force)
 	if ctx.Err() == nil {
 		g.tested.Store(true)
+	}
+	if g.fallback != nil {
+		g.fallback.updateStreaks(g)
 	}
 	if g.updateCheck != nil {
 		g.updateCheck()
