@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/sagernet/sing-box/adapter"
+	"github.com/sagernet/sing-box/common/fairshare"
 	"github.com/sagernet/sing-box/common/sniff"
 	"github.com/sagernet/sing-box/common/tlsspoof"
 	C "github.com/sagernet/sing-box/constant"
@@ -27,6 +28,13 @@ func newRuleActionRouteOptions(options option.RawRouteOptionsActionOptions) (Rul
 	if err != nil {
 		return RuleActionRouteOptions{}, err
 	}
+	var fairShare *fairshare.Limiter
+	if options.FairShare != nil {
+		if options.FairShare.UpMbps == 0 && options.FairShare.DownMbps == 0 {
+			return RuleActionRouteOptions{}, E.New("fair_share: missing up_mbps or down_mbps")
+		}
+		fairShare = fairshare.NewLimiter(uint64(options.FairShare.UpMbps)*C.MbpsToBps, uint64(options.FairShare.DownMbps)*C.MbpsToBps)
+	}
 	return RuleActionRouteOptions{
 		OverrideAddress:           M.ParseSocksaddrHostPort(options.OverrideAddress, 0),
 		OverridePort:              options.OverridePort,
@@ -40,6 +48,7 @@ func newRuleActionRouteOptions(options option.RawRouteOptionsActionOptions) (Rul
 		TLSRecordFragment:         options.TLSRecordFragment,
 		TLSSpoof:                  spoof,
 		TLSSpoofMethod:            spoofMethod,
+		FairShare:                 fairShare,
 	}, nil
 }
 
@@ -213,6 +222,7 @@ type RuleActionRouteOptions struct {
 	TLSRecordFragment         bool
 	TLSSpoof                  string
 	TLSSpoofMethod            tlsspoof.Method
+	FairShare                 *fairshare.Limiter
 }
 
 func (r *RuleActionRouteOptions) Type() string {
@@ -264,6 +274,9 @@ func (r *RuleActionRouteOptions) Descriptions() []string {
 	if r.TLSSpoof != "" {
 		descriptions = append(descriptions, F.ToString("tls-spoof=", r.TLSSpoof))
 		descriptions = append(descriptions, F.ToString("tls-spoof-method=", r.TLSSpoofMethod.String()))
+	}
+	if r.FairShare != nil {
+		descriptions = append(descriptions, "fair-share")
 	}
 	return descriptions
 }

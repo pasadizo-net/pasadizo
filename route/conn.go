@@ -144,7 +144,9 @@ func (m *ConnectionManager) NewConnection(ctx context.Context, this N.Dialer, co
 		m.logger.ErrorContext(ctx, err)
 		return
 	}
-	if !metadata.TLSFragment && !metadata.TLSRecordFragment && metadata.TLSSpoof == "" {
+	if metadata.FairShare != nil {
+		conn = metadata.FairShare.NewConn(conn, metadata.Source.Addr)
+	} else if !metadata.TLSFragment && !metadata.TLSRecordFragment && metadata.TLSSpoof == "" {
 		var spliced bool
 		spliced, err = m.spliceConnection(ctx, conn, remoteConn, onClose)
 		if err != nil {
@@ -267,9 +269,11 @@ func (m *ConnectionManager) NewPacketConnection(ctx context.Context, this N.Dial
 	if remoteConn != nil {
 		spliceRemote = remoteConn
 	}
-	conn, spliced = m.splicePacketConnection(ctx, conn, spliceRemote, &metadata, destinationAddress, udpTimeout, onClose)
-	if spliced {
-		return
+	if metadata.FairShare == nil {
+		conn, spliced = m.splicePacketConnection(ctx, conn, spliceRemote, &metadata, destinationAddress, udpTimeout, onClose)
+		if spliced {
+			return
+		}
 	}
 	if destinationAddress.IsValid() {
 		var originDestination M.Socksaddr
@@ -294,6 +298,9 @@ func (m *ConnectionManager) NewPacketConnection(ctx context.Context, this N.Dial
 		}
 	} else if metadata.RouteOriginalDestination.IsValid() && metadata.RouteOriginalDestination != metadata.Destination {
 		remotePacketConn = bufio.NewDestinationNATPacketConn(bufio.NewPacketConn(remotePacketConn), metadata.Destination, metadata.RouteOriginalDestination)
+	}
+	if metadata.FairShare != nil {
+		conn = metadata.FairShare.NewPacketConn(conn, metadata.Source.Addr)
 	}
 	if udpTimeout > 0 {
 		ctx, conn = canceler.NewPacketConn(ctx, conn, udpTimeout)

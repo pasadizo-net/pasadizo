@@ -675,6 +675,9 @@ match:
 				metadata.TLSSpoof = routeOptions.TLSSpoof
 				metadata.TLSSpoofMethod = routeOptions.TLSSpoofMethod
 			}
+			if routeOptions.FairShare != nil {
+				metadata.FairShare = routeOptions.FairShare
+			}
 		}
 		switch action := currentRule.Action().(type) {
 		case *R.RuleActionSniff:

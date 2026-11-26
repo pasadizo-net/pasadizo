@@ -2,6 +2,10 @@
 icon: material/new-box
 ---
 
+!!! quote "sing-box 1.15.0 中的更改"
+
+    :material-plus: [fair_share](#fair_share)
+
 !!! quote "sing-box 1.13.0 中的更改"
 
     :material-plus: [bypass](#bypass)  
@@ -146,7 +150,8 @@ icon: material/new-box
   "tls_fragment_fallback_delay": "",
   "tls_record_fragment": false,
   "tls_spoof": "",
-  "tls_spoof_method": ""
+  "tls_spoof_method": "",
+  "fair_share": {}
 }
 ```
 
@@ -255,6 +260,31 @@ UDP 连接超时时间。
 
 控制伪造报文被真实服务器拒绝的方式。完整取值表与平台说明参阅出站 TLS
 [`spoof_method`](/zh/configuration/shared/tls/#spoof_method)。
+
+#### fair_share
+
+!!! question "自 sing-box 1.15.0 起"
+
+```json
+{
+  "up_mbps": 0,
+  "down_mbps": 0
+}
+```
+
+在来源地址之间公平分配固定带宽。
+
+匹配此规则的所有连接共享同一个限速器。当某一方向繁忙时，
+每个有待发送流量的来源地址获得相同份额，无论其打开多少连接；
+空闲来源的份额分配给其他来源。
+
+`up_mbps` 限制来自客户端的流量，`down_mbps` 限制发往客户端的流量，单位为 Mbps。
+`0` 表示该方向不限速；至少需要设置一项。
+
+仅当速率低于真实瓶颈时队列才会在 sing-box 中形成，
+因此应将其设置为略低于链路或出站的容量。
+
+使用此选项的连接不会在内核中进行 splice。
 
 ### sniff
 

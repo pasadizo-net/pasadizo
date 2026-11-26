@@ -5256,6 +5256,22 @@
       },
       "additionalProperties": false
     },
+    "FairShareOptions": {
+      "type": "object",
+      "properties": {
+        "up_mbps": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "down_mbps": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        }
+      },
+      "additionalProperties": false
+    },
     "HTTPClient": {
       "type": "object",
       "properties": {
@@ -15889,6 +15905,9 @@
                 "wrong-md5",
                 "wrong-timestamp"
               ]
+            },
+            "fair_share": {
+              "$ref": "#/$defs/FairShareOptions"
             }
           }
         },
@@ -15947,6 +15966,9 @@
                 "wrong-md5",
                 "wrong-timestamp"
               ]
+            },
+            "fair_share": {
+              "$ref": "#/$defs/FairShareOptions"
             }
           },
           "required": [
@@ -16012,6 +16034,9 @@
                 "wrong-md5",
                 "wrong-timestamp"
               ]
+            },
+            "fair_share": {
+              "$ref": "#/$defs/FairShareOptions"
             }
           },
           "required": [

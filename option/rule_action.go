@@ -178,6 +178,13 @@ type RawRouteOptionsActionOptions struct {
 	TLSRecordFragment        bool               `json:"tls_record_fragment,omitempty"`
 	TLSSpoof                 string             `json:"tls_spoof,omitempty"`
 	TLSSpoofMethod           string             `json:"tls_spoof_method,omitempty" enum:"wrong-sequence,wrong-checksum,wrong-ack,wrong-md5,wrong-timestamp"`
+
+	FairShare *FairShareOptions `json:"fair_share,omitempty"`
+}
+
+type FairShareOptions struct {
+	UpMbps   uint32 `json:"up_mbps,omitempty"`
+	DownMbps uint32 `json:"down_mbps,omitempty"`
 }
 
 type RouteOptionsActionOptions RawRouteOptionsActionOptions

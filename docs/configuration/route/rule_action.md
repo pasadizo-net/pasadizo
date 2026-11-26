@@ -2,6 +2,10 @@
 icon: material/new-box
 ---
 
+!!! quote "Changes in sing-box 1.15.0"
+
+    :material-plus: [fair_share](#fair_share)
+
 !!! quote "Changes in sing-box 1.13.0"
 
     :material-plus: [bypass](#bypass)  
@@ -153,7 +157,8 @@ Not available when `method` is set to drop.
   "tls_fragment_fallback_delay": "",
   "tls_record_fragment": "",
   "tls_spoof": "",
-  "tls_spoof_method": ""
+  "tls_spoof_method": "",
+  "fair_share": {}
 }
 ```
 
@@ -265,6 +270,31 @@ and required privileges.
 How the forged segment is rejected by the real server. See outbound TLS
 [`spoof_method`](/configuration/shared/tls/#spoof_method) for the full table
 of accepted values and platform notes.
+
+#### fair_share
+
+!!! question "Since sing-box 1.15.0"
+
+```json
+{
+  "up_mbps": 0,
+  "down_mbps": 0
+}
+```
+
+Share a fixed bandwidth fairly between source addresses.
+
+All connections matched by this rule share one limiter. Once a direction is busy,
+each source address that has traffic waiting gets an equal share of its rate,
+however many connections it opens, and the share of an idle source goes to the others.
+
+`up_mbps` limits traffic from the client and `down_mbps` limits traffic to the client,
+in Mbps. A value of `0` leaves that direction unlimited; at least one is required.
+
+The queue only forms in sing-box when the rate is below the real bottleneck,
+so set it slightly below the capacity of the link or the outbound.
+
+Connections that use this option are not spliced in the kernel.
 
 ### sniff
 
