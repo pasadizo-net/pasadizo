@@ -233,6 +233,8 @@ type URLTestGroup struct {
 	idleTimeout                  time.Duration
 	history                      *urltest.HistoryStorage
 	checking                     atomic.Bool
+	tested                       atomic.Bool
+	updateCheck                  func() bool
 	selectedOutboundTCP          common.TypedValue[adapter.Outbound]
 	selectedOutboundUDP          common.TypedValue[adapter.Outbound]
 	interruptGroup               *interrupt.Group
@@ -404,7 +406,14 @@ func (g *URLTestGroup) urlTest(ctx context.Context, force bool) (map[string]uint
 	}
 	defer g.checking.Store(false)
 	result := urlTestOutbounds(ctx, g.outbound, g.history, g.logger, g.outbounds, g.link, g.interval, force)
-	g.performUpdateCheck()
+	if ctx.Err() == nil {
+		g.tested.Store(true)
+	}
+	if g.updateCheck != nil {
+		g.updateCheck()
+	} else {
+		g.performUpdateCheck()
+	}
 	g.history.NotifyUpdated()
 	return result, nil
 }
@@ -466,6 +475,16 @@ func (b *urlTestBatch) test(outbounds []adapter.Outbound, link string, interval 
 		}
 		switch nested := detour.(type) {
 		case *URLTest:
+			b.checked[tag] = true
+			b.groups = append(b.groups, nested)
+			b.batch.Go(tag, func() (any, error) {
+				nestedResult, _ := nested.group.urlTest(b.ctx, force)
+				b.access.Lock()
+				maps.Copy(b.result, nestedResult)
+				b.access.Unlock()
+				return nil, nil
+			})
+		case *LoadBalance:
 			b.checked[tag] = true
 			b.groups = append(b.groups, nested)
 			b.batch.Go(tag, func() (any, error) {

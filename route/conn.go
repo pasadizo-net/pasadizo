@@ -309,6 +309,12 @@ func (m *ConnectionManager) deleteURLTestHistory(chain []adapter.Outbound, err e
 		return
 	}
 	urlTestGroups := common.FilterIsInstance(chain, func(it adapter.Outbound) (adapter.URLTestGroup, bool) {
+		// a destination group spreads destinations over its members, so one
+		// failed destination says nothing about the member: its health comes
+		// from URL tests only
+		if _, isDestinationGroup := it.(adapter.DestinationOutboundGroup); isDestinationGroup {
+			return nil, false
+		}
 		group, isURLTestGroup := it.(adapter.URLTestGroup)
 		return group, isURLTestGroup
 	})

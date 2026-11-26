@@ -8,6 +8,7 @@ import (
 	"time"
 
 	E "github.com/sagernet/sing/common/exceptions"
+	M "github.com/sagernet/sing/common/metadata"
 	"github.com/sagernet/sing/common/varbin"
 )
 
@@ -154,6 +155,14 @@ type OutboundGroup interface {
 	All() []string
 	Selected(network string) Outbound
 	AttachConnection(closer io.Closer) (detach func())
+}
+
+// DestinationOutboundGroup is an OutboundGroup that picks its member for each
+// connection from the connection's destination instead of holding one
+// selected member.
+type DestinationOutboundGroup interface {
+	OutboundGroup
+	SelectedFor(network string, destination M.Socksaddr) Outbound
 }
 
 type URLTestGroup interface {
