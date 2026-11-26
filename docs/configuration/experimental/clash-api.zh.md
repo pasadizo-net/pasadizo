@@ -1,3 +1,7 @@
+!!! quote "sing-box 1.15.0 中的更改"
+
+    :material-plus: [指标](#指标)
+
 !!! quote "sing-box 1.10.0 中的更改"
 
     :material-plus: [access_control_allow_origin](#access_control_allow_origin)  
@@ -162,3 +166,35 @@ Clash 中的默认模式，默认使用 `Rule`。
 缓存 ID。
 
 如果不为空，配置特定的数据将使用由其键控的单独存储。
+
+### 指标
+
+!!! question "自 sing-box 1.15.0 起"
+
+`GET /metrics` 以 Prometheus 文本格式返回指标，与其他 API 一样受 `secret` 保护。
+
+| 指标                                          | 类型      | 标签                  | 描述                       |
+|---------------------------------------------|---------|---------------------|--------------------------|
+| `sing_box_connections`                      | gauge   |                     | 当前打开的连接数                 |
+| `sing_box_upload_bytes_total`               | counter |                     | 所有出站发送的字节数               |
+| `sing_box_download_bytes_total`             | counter |                     | 所有出站接收的字节数               |
+| `sing_box_memory_inuse_bytes`               | gauge   |                     | Go 运行时使用的内存              |
+| `sing_box_outbound_connections`             | gauge   | `outbound`          | 每个出站当前打开的连接数             |
+| `sing_box_outbound_upload_bytes_total`      | counter | `outbound`          | 每个出站发送的字节数               |
+| `sing_box_outbound_download_bytes_total`    | counter | `outbound`          | 每个出站接收的字节数               |
+| `sing_box_outbound_delay_milliseconds`      | gauge   | `outbound`          | 最近一次成功的 URL 测试的延迟        |
+| `sing_box_outbound_delay_timestamp_seconds` | gauge   | `outbound`          | 最近一次成功的 URL 测试的 Unix 时间  |
+| `sing_box_group_selected`                   | gauge   | `group`, `outbound` | 出站组中被选中的成员为 `1`，其他成员为 `0` |
+
+流量计入最终处理连接的出站，而不是选择它的出站组。
+
+Prometheus 抓取配置示例：
+
+```yaml
+scrape_configs:
+  - job_name: sing-box
+    authorization:
+      credentials: "${secret}"
+    static_configs:
+      - targets: ["127.0.0.1:9090"]
+```

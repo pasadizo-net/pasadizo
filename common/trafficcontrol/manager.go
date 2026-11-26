@@ -1,6 +1,7 @@
 package trafficcontrol
 
 import (
+	"maps"
 	"sync"
 	"time"
 
@@ -41,6 +42,7 @@ type Manager struct {
 	closedUploadTotal       int64
 	closedDownloadTotal     int64
 	closedSourceTraffic     map[SourceKey]sourceTraffic
+	closedOutboundTotal     map[string]OutboundStatistics
 
 	eventSubscriber *observable.Subscriber[ConnectionEvent]
 	eventObserver   *observable.Observer[ConnectionEvent]
@@ -48,7 +50,8 @@ type Manager struct {
 
 func NewManager() *Manager {
 	return &Manager{
-		eventSubscriber: observable.NewSubscriber[ConnectionEvent](256),
+		eventSubscriber:     observable.NewSubscriber[ConnectionEvent](256),
+		closedOutboundTotal: make(map[string]OutboundStatistics),
 	}
 }
 
@@ -98,6 +101,10 @@ func (m *Manager) leave(tracker Tracker) {
 	}
 	metadata.ClosedAt = closedAt
 	metadataCopy := *metadata
+	outboundTotal := m.closedOutboundTotal[metadata.Outbound]
+	outboundTotal.Upload += metadata.Upload.Load()
+	outboundTotal.Download += metadata.Download.Load()
+	m.closedOutboundTotal[metadata.Outbound] = outboundTotal
 	if m.closedConnections.Len() >= closedConnectionsLimit {
 		evicted := m.closedConnections.PopFront()
 		m.foldClosed(&evicted)
@@ -128,6 +135,30 @@ func (m *Manager) Total() (uplinkTotal int64, downlinkTotal int64) {
 		return true
 	})
 	return
+}
+
+type OutboundStatistics struct {
+	Upload      int64
+	Download    int64
+	Connections int
+}
+
+// OutboundTotal returns the traffic of all connections, open and closed, and
+// the number of open connections, keyed by the tag of the final outbound.
+func (m *Manager) OutboundTotal() map[string]OutboundStatistics {
+	m.closedConnectionsAccess.Lock()
+	defer m.closedConnectionsAccess.Unlock()
+	statistics := maps.Clone(m.closedOutboundTotal)
+	m.connections.Range(func(_ uuid.UUID, tracker Tracker) bool {
+		metadata := tracker.Metadata()
+		outboundStatistics := statistics[metadata.Outbound]
+		outboundStatistics.Upload += metadata.Upload.Load()
+		outboundStatistics.Download += metadata.Download.Load()
+		outboundStatistics.Connections++
+		statistics[metadata.Outbound] = outboundStatistics
+		return true
+	})
+	return statistics
 }
 
 func (m *Manager) ConnectionsLen() int {

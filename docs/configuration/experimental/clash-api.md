@@ -1,3 +1,7 @@
+!!! quote "Changes in sing-box 1.15.0"
+
+    :material-plus: [metrics](#metrics)
+
 !!! quote "Changes in sing-box 1.10.0"
 
     :material-plus: [access_control_allow_origin](#access_control_allow_origin)  
@@ -164,3 +168,35 @@ Cache file path, `cache.db` will be used if empty.
 Identifier in cache file.
 
 If not empty, configuration specified data will use a separate store keyed by it.
+
+### Metrics
+
+!!! question "Since sing-box 1.15.0"
+
+`GET /metrics` returns metrics in the Prometheus text format, protected by `secret` like the rest of the API.
+
+| Metric                                      | Type    | Labels              | Description                                                   |
+|---------------------------------------------|---------|---------------------|---------------------------------------------------------------|
+| `sing_box_connections`                      | gauge   |                     | Number of open connections                                    |
+| `sing_box_upload_bytes_total`               | counter |                     | Bytes sent through all outbounds                              |
+| `sing_box_download_bytes_total`             | counter |                     | Bytes received through all outbounds                          |
+| `sing_box_memory_inuse_bytes`               | gauge   |                     | Memory in use by the Go runtime                               |
+| `sing_box_outbound_connections`             | gauge   | `outbound`          | Number of open connections per outbound                       |
+| `sing_box_outbound_upload_bytes_total`      | counter | `outbound`          | Bytes sent per outbound                                       |
+| `sing_box_outbound_download_bytes_total`    | counter | `outbound`          | Bytes received per outbound                                   |
+| `sing_box_outbound_delay_milliseconds`      | gauge   | `outbound`          | Delay of the last successful URL test                         |
+| `sing_box_outbound_delay_timestamp_seconds` | gauge   | `outbound`          | Unix time of the last successful URL test                     |
+| `sing_box_group_selected`                   | gauge   | `group`, `outbound` | `1` for the selected member of an outbound group, `0` for the others |
+
+Traffic is counted on the outbound that finally handles the connection, not on the groups that select it.
+
+Example Prometheus scrape configuration:
+
+```yaml
+scrape_configs:
+  - job_name: sing-box
+    authorization:
+      credentials: "${secret}"
+    static_configs:
+      - targets: ["127.0.0.1:9090"]
+```
