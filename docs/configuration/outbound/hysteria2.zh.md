@@ -1,3 +1,7 @@
+!!! quote "sing-box 1.15.0 中的更改"
+
+    :material-plus: [connections](#connections)
+
 !!! quote "sing-box 1.14.0 中的更改"
 
     :material-plus: [hop_interval_max](#hop_interval_max)  
@@ -33,6 +37,7 @@
   },
   "password": "goofy_ahh_password",
   "network": "tcp",
+  "connections": 1,
   "tls": {},
 
   ... // QUIC 字段
@@ -155,6 +160,19 @@ QUIC 流量混淆器密码。
 `tcp` 或 `udp`。
 
 默认所有。
+
+#### connections
+
+!!! question "自 sing-box 1.15.0 起"
+
+与服务器保持的独立 Hysteria2 连接数。
+
+新的 TCP 连接和 UDP 会话以轮询方式分配到这些连接上。
+已关闭的连接将在下次使用时重新建立。
+
+`up_mbps` 和 `down_mbps` 在各连接间平均分配，总和保持为配置的带宽。
+
+默认使用 `1`。
 
 #### tls
 

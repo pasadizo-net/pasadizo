@@ -1,3 +1,7 @@
+!!! quote "Changes in sing-box 1.15.0"
+
+    :material-plus: [connections](#connections)
+
 !!! quote "Changes in sing-box 1.14.0"
 
     :material-plus: [hop_interval_max](#hop_interval_max)  
@@ -33,6 +37,7 @@
   },
   "password": "goofy_ahh_password",
   "network": "tcp",
+  "connections": 1,
   "tls": {},
 
   ... // QUIC Fields
@@ -157,6 +162,19 @@ Enabled network
 One of `tcp` `udp`.
 
 Both is enabled by default.
+
+#### connections
+
+!!! question "Since sing-box 1.15.0"
+
+Number of independent Hysteria2 connections to keep to the server.
+
+New TCP connections and UDP sessions are spread over them in round-robin order.
+A connection that is closed is established again when it is next used.
+
+`up_mbps` and `down_mbps` are divided evenly between the connections, so their total stays at the configured bandwidth.
+
+`1` is used by default.
 
 #### tls
 

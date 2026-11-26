@@ -215,6 +215,7 @@ type Hysteria2OutboundOptions struct {
 	Obfs           *Hysteria2Obfs         `json:"obfs,omitempty"`
 	Password       string                 `json:"password,omitempty"`
 	Network        NetworkList            `json:"network,omitempty"`
+	Connections    int                    `json:"connections,omitempty"`
 	OutboundTLSOptionsContainer
 	QUICOptions
 	BBRProfile          string          `json:"bbr_profile,omitempty" enum:"standard,conservative,aggressive"`

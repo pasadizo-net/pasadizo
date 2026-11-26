@@ -7,6 +7,7 @@ import (
 	"net/netip"
 	"net/url"
 	"os"
+	"sync/atomic"
 	"time"
 
 	"github.com/sagernet/sing-box/adapter"
@@ -42,13 +43,20 @@ var (
 
 type Outbound struct {
 	outbound.Adapter
-	logger logger.ContextLogger
-	client *hysteria2.Client
+	logger  logger.ContextLogger
+	clients []*hysteria2.Client
+	next    atomic.Uint32
 }
 
 func NewOutbound(ctx context.Context, router adapter.Router, logger log.ContextLogger, tag string, options option.Hysteria2OutboundOptions) (adapter.Outbound, error) {
 	if options.TLS == nil || !options.TLS.Enabled {
 		return nil, C.ErrTLSRequired
+	}
+	connections := options.Connections
+	if connections < 0 {
+		return nil, E.New("invalid connections: ", connections)
+	} else if connections == 0 {
+		connections = 1
 	}
 	tlsServerAddress, tlsOptions, err := outboundTLSOptions(options)
 	if err != nil {
@@ -132,7 +140,7 @@ func NewOutbound(ctx context.Context, router adapter.Router, logger log.ContextL
 		}
 	}
 	networkList := options.Network.Build()
-	client, err := hysteria2.NewClient(hysteria2.ClientOptions{
+	clientOptions := hysteria2.ClientOptions{
 		Context:            ctx,
 		Dialer:             outboundDialer,
 		Logger:             logger,
@@ -141,8 +149,8 @@ func NewOutbound(ctx context.Context, router adapter.Router, logger log.ContextL
 		ServerPorts:        options.ServerPorts,
 		HopInterval:        time.Duration(options.HopInterval),
 		HopIntervalMax:     time.Duration(options.HopIntervalMax),
-		SendBPS:            uint64(options.UpMbps * hysteria.MbpsToBps),
-		ReceiveBPS:         uint64(options.DownMbps * hysteria.MbpsToBps),
+		SendBPS:            splitBandwidth(options.UpMbps, connections),
+		ReceiveBPS:         splitBandwidth(options.DownMbps, connections),
 		SalamanderPassword: salamanderPassword,
 		GeckoPassword:      geckoPassword,
 		GeckoMinPacketSize: geckoMinPacketSize,
@@ -162,15 +170,33 @@ func NewOutbound(ctx context.Context, router adapter.Router, logger log.ContextL
 		BBRProfile:   options.BBRProfile,
 		ChromeParrot: !options.DisableChromeParrot,
 		RealmOptions: realmOptions,
-	})
-	if err != nil {
-		return nil, err
+	}
+	clients := make([]*hysteria2.Client, connections)
+	for i := range clients {
+		clients[i], err = hysteria2.NewClient(clientOptions)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return &Outbound{
 		Adapter: outbound.NewAdapterWithDialerOptions(C.TypeHysteria2, tag, networkList, options.DialerOptions),
 		logger:  logger,
-		client:  client,
+		clients: clients,
 	}, nil
+}
+
+// splitBandwidth divides the configured bandwidth of the outbound evenly
+// between its connections, so that their sum stays at the configured value.
+func splitBandwidth(mbps int, connections int) uint64 {
+	return uint64(mbps*hysteria.MbpsToBps) / uint64(connections)
+}
+
+// pickClient returns the client for a new stream or UDP session, in round-robin order.
+func (h *Outbound) pickClient() *hysteria2.Client {
+	if len(h.clients) == 1 {
+		return h.clients[0]
+	}
+	return h.clients[(h.next.Add(1)-1)%uint32(len(h.clients))]
 }
 
 func outboundTLSOptions(options option.Hysteria2OutboundOptions) (string, option.OutboundTLSOptions, error) {
@@ -196,7 +222,7 @@ func (h *Outbound) DialContext(ctx context.Context, network string, destination 
 	switch N.NetworkName(network) {
 	case N.NetworkTCP:
 		h.logger.InfoContext(ctx, "outbound connection to ", destination)
-		return h.client.DialConn(ctx, destination)
+		return h.pickClient().DialConn(ctx, destination)
 	case N.NetworkUDP:
 		conn, err := h.ListenPacket(ctx, destination)
 		if err != nil {
@@ -210,11 +236,14 @@ func (h *Outbound) DialContext(ctx context.Context, network string, destination 
 
 func (h *Outbound) ListenPacket(ctx context.Context, destination M.Socksaddr) (net.PacketConn, error) {
 	h.logger.InfoContext(ctx, "outbound packet connection to ", destination)
-	return h.client.ListenPacket(ctx)
+	return h.pickClient().ListenPacket(ctx)
 }
 
 func (h *Outbound) InterfaceUpdated(ctx context.Context) {
-	h.client.CloseWithError(E.New("network changed"))
+	err := E.New("network changed")
+	for _, client := range h.clients {
+		client.CloseWithError(err)
+	}
 }
 
 func (h *Outbound) MultiplexEnabled() bool {
@@ -222,11 +251,15 @@ func (h *Outbound) MultiplexEnabled() bool {
 }
 
 func (h *Outbound) SetKeepIdleConnections(keep bool) {
-	h.client.SetKeepIdleConnections(keep)
+	for _, client := range h.clients {
+		client.SetKeepIdleConnections(keep)
+	}
 }
 
 func (h *Outbound) CloseIdleConnections() {
-	h.client.CloseIdleConnections()
+	for _, client := range h.clients {
+		client.CloseIdleConnections()
+	}
 }
 
 func (h *Outbound) Start(stage adapter.StartStage, scope *adapter.Scope) error {
@@ -234,7 +267,10 @@ func (h *Outbound) Start(stage adapter.StartStage, scope *adapter.Scope) error {
 		return nil
 	}
 	scope.Add(func() error {
-		return h.client.CloseWithError(os.ErrClosed)
+		for _, client := range h.clients {
+			client.CloseWithError(os.ErrClosed)
+		}
+		return nil
 	})
 	return nil
 }
