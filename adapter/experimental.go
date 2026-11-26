@@ -170,3 +170,37 @@ type URLTestGroup interface {
 	URLTest(ctx context.Context) (map[string]uint16, error)
 	PerformUpdateCheck()
 }
+
+const (
+	OutboundGroupEventSelected = "selected"
+	OutboundGroupEventHealth   = "health"
+)
+
+const (
+	OutboundGroupEventReasonSelect        = "select"
+	OutboundGroupEventReasonURLTest       = "url_test"
+	OutboundGroupEventReasonHistoryUpdate = "history_update"
+)
+
+const (
+	OutboundGroupHealthAvailable   = "available"
+	OutboundGroupHealthUnavailable = "unavailable"
+)
+
+type OutboundGroupEvent struct {
+	Type     string    `json:"type"`
+	Group    string    `json:"group"`
+	Network  string    `json:"network,omitempty"`
+	Outbound string    `json:"outbound,omitempty"`
+	From     string    `json:"from"`
+	To       string    `json:"to"`
+	Delay    uint16    `json:"delay,omitempty"`
+	Reason   string    `json:"reason"`
+	Time     time.Time `json:"time"`
+}
+
+// OutboundGroupEventListener receives selection and member health changes of outbound groups.
+// Implementations must not block.
+type OutboundGroupEventListener interface {
+	NotifyOutboundGroupEvent(event OutboundGroupEvent)
+}

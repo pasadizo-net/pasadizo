@@ -5,6 +5,7 @@ import (
 	"io"
 	"net"
 	"slices"
+	"time"
 
 	"github.com/sagernet/sing-box/adapter"
 	"github.com/sagernet/sing-box/adapter/outbound"
@@ -42,6 +43,7 @@ type Selector struct {
 	history                      *urltest.HistoryStorage
 	interruptGroup               *interrupt.Group
 	interruptExternalConnections bool
+	eventListener                adapter.OutboundGroupEventListener
 }
 
 func NewSelector(ctx context.Context, router adapter.Router, logger log.ContextLogger, tag string, options option.SelectorOutboundOptions) (adapter.Outbound, error) {
@@ -87,6 +89,7 @@ func (s *Selector) Start(stage adapter.StartStage, scope *adapter.Scope) error {
 		}
 		s.outbounds[tag] = detour
 	}
+	s.eventListener = service.FromContext[adapter.OutboundGroupEventListener](s.ctx)
 
 	if s.Tag() != "" {
 		cacheFile := service.FromContext[adapter.CacheFile](s.ctx)
@@ -140,7 +143,8 @@ func (s *Selector) SelectOutbound(tag string) bool {
 	if !loaded {
 		return false
 	}
-	if s.selected.Swap(detour) == detour {
+	previous := s.selected.Swap(detour)
+	if previous == detour {
 		return true
 	}
 	if s.Tag() != "" {
@@ -155,6 +159,16 @@ func (s *Selector) SelectOutbound(tag string) bool {
 	s.interruptGroup.Interrupt(s.interruptExternalConnections)
 	if s.history != nil {
 		s.history.NotifyUpdated()
+	}
+	if s.eventListener != nil && previous != nil {
+		s.eventListener.NotifyOutboundGroupEvent(adapter.OutboundGroupEvent{
+			Type:   adapter.OutboundGroupEventSelected,
+			Group:  s.Tag(),
+			From:   previous.Tag(),
+			To:     tag,
+			Reason: adapter.OutboundGroupEventReasonSelect,
+			Time:   time.Now(),
+		})
 	}
 	return true
 }

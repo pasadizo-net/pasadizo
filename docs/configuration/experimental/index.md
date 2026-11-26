@@ -1,5 +1,9 @@
 # Experimental
 
+!!! quote "Changes in sing-box 1.15.0"
+
+    :material-plus: [group_webhook](./group-webhook/)
+
 !!! quote "Changes in sing-box 1.8.0"
 
     :material-plus: [cache_file](./cache-file/)  
@@ -12,15 +16,17 @@
   "experimental": {
     "cache_file": {},
     "clash_api": {},
-    "v2ray_api": {}
+    "v2ray_api": {},
+    "group_webhook": {}
   }
 }
 ```
 
 ### Fields
 
-| Key          | Format                     |
-|--------------|----------------------------|
-| `cache_file` | [Cache File](./cache-file/) |
-| `clash_api`  | [Clash API](./clash-api/)   |
-| `v2ray_api`  | [V2Ray API](./v2ray-api/)   |
+| Key             | Format                            |
+|-----------------|-----------------------------------|
+| `cache_file`    | [Cache File](./cache-file/)       |
+| `clash_api`     | [Clash API](./clash-api/)         |
+| `v2ray_api`     | [V2Ray API](./v2ray-api/)         |
+| `group_webhook` | [Group Webhook](./group-webhook/) |

@@ -6,10 +6,11 @@ import (
 )
 
 type ExperimentalOptions struct {
-	CacheFile *CacheFileOptions `json:"cache_file,omitempty"`
-	ClashAPI  *ClashAPIOptions  `json:"clash_api,omitempty"`
-	V2RayAPI  *V2RayAPIOptions  `json:"v2ray_api,omitempty"`
-	Debug     *DebugOptions     `json:"debug,omitempty"`
+	CacheFile    *CacheFileOptions    `json:"cache_file,omitempty"`
+	ClashAPI     *ClashAPIOptions     `json:"clash_api,omitempty"`
+	V2RayAPI     *V2RayAPIOptions     `json:"v2ray_api,omitempty"`
+	GroupWebhook *GroupWebhookOptions `json:"group_webhook,omitempty"`
+	Debug        *DebugOptions        `json:"debug,omitempty"`
 }
 
 type CacheFileOptions struct {
@@ -47,6 +48,15 @@ type ClashAPIOptions struct {
 	StoreSelected bool `json:"store_selected,omitempty" schema:"omit"`
 	// Deprecated: migrated to global cache file
 	StoreFakeIP bool `json:"store_fakeip,omitempty" schema:"omit"`
+}
+
+type GroupWebhookOptions struct {
+	URL         string               `json:"url"`
+	Headers     badoption.HTTPHeader `json:"headers,omitempty"`
+	HTTPClient  *HTTPClientOptions   `json:"http_client,omitempty"`
+	Timeout     badoption.Duration   `json:"timeout,omitempty"`
+	MaxAttempts uint32               `json:"max_attempts,omitempty"`
+	QueueSize   uint32               `json:"queue_size,omitempty"`
 }
 
 type V2RayAPIOptions struct {

@@ -88,7 +88,7 @@ func (s *URLTest) Start(stage adapter.StartStage, scope *adapter.Scope) error {
 			}
 			outbounds = append(outbounds, detour)
 		}
-		group, err := NewURLTestGroup(s.ctx, s.outbound, s.logger, outbounds, s.link, s.interval, s.tolerance, s.idleTimeout, s.interruptExternalConnections)
+		group, err := NewURLTestGroup(s.ctx, s.outbound, s.logger, s.Tag(), outbounds, s.link, s.interval, s.tolerance, s.idleTimeout, s.interruptExternalConnections)
 		if err != nil {
 			return err
 		}
@@ -149,7 +149,7 @@ func (s *URLTest) CheckOutbounds() {
 }
 
 func (s *URLTest) PerformUpdateCheck() {
-	if s.group.performUpdateCheck() {
+	if s.group.performUpdateCheck(s.ctx, adapter.OutboundGroupEventReasonHistoryUpdate) {
 		s.group.history.NotifyUpdated()
 	}
 }
@@ -228,6 +228,7 @@ type URLTestGroup struct {
 	pause                        pause.Manager
 	pauseCallback                *list.Element[pause.Callback]
 	logger                       log.Logger
+	tag                          string
 	outbounds                    []adapter.Outbound
 	link                         string
 	interval                     time.Duration
@@ -236,7 +237,7 @@ type URLTestGroup struct {
 	history                      *urltest.HistoryStorage
 	checking                     atomic.Bool
 	tested                       atomic.Bool
-	updateCheck                  func() bool
+	updateCheck                  func(ctx context.Context, reason string) bool
 	selectedOutboundTCP          common.TypedValue[adapter.Outbound]
 	selectedOutboundUDP          common.TypedValue[adapter.Outbound]
 	interruptGroup               *interrupt.Group
@@ -249,9 +250,11 @@ type URLTestGroup struct {
 	closed                       atomic.Bool
 	lastActive                   common.TypedValue[time.Time]
 	fallback                     *fallbackStrategy
+	eventListener                adapter.OutboundGroupEventListener
+	memberAvailable              map[string]bool
 }
 
-func NewURLTestGroup(ctx context.Context, outboundManager adapter.OutboundManager, logger log.Logger, outbounds []adapter.Outbound, link string, interval time.Duration, tolerance uint16, idleTimeout time.Duration, interruptExternalConnections bool) (*URLTestGroup, error) {
+func NewURLTestGroup(ctx context.Context, outboundManager adapter.OutboundManager, logger log.Logger, tag string, outbounds []adapter.Outbound, link string, interval time.Duration, tolerance uint16, idleTimeout time.Duration, interruptExternalConnections bool) (*URLTestGroup, error) {
 	if interval == 0 {
 		interval = C.DefaultURLTestInterval
 	}
@@ -272,6 +275,7 @@ func NewURLTestGroup(ctx context.Context, outboundManager adapter.OutboundManage
 		ctx:                          ctx,
 		outbound:                     outboundManager,
 		logger:                       logger,
+		tag:                          tag,
 		outbounds:                    outbounds,
 		link:                         link,
 		interval:                     interval,
@@ -282,6 +286,7 @@ func NewURLTestGroup(ctx context.Context, outboundManager adapter.OutboundManage
 		pause:                        service.FromContext[pause.Manager](ctx),
 		interruptGroup:               interrupt.NewGroup(),
 		interruptExternalConnections: interruptExternalConnections,
+		eventListener:                service.FromContext[adapter.OutboundGroupEventListener](ctx),
 	}, nil
 }
 
@@ -419,9 +424,9 @@ func (g *URLTestGroup) urlTest(ctx context.Context, force bool) (map[string]uint
 		g.fallback.updateStreaks(g)
 	}
 	if g.updateCheck != nil {
-		g.updateCheck()
+		g.updateCheck(ctx, adapter.OutboundGroupEventReasonURLTest)
 	} else {
-		g.performUpdateCheck()
+		g.performUpdateCheck(ctx, adapter.OutboundGroupEventReasonURLTest)
 	}
 	g.history.NotifyUpdated()
 	return result, nil
@@ -554,7 +559,7 @@ func (b *urlTestBatch) test(outbounds []adapter.Outbound, link string, interval 
 	}
 }
 
-func (g *URLTestGroup) performUpdateCheck() bool {
+func (g *URLTestGroup) performUpdateCheck(ctx context.Context, reason string) bool {
 	g.updateAccess.Lock()
 	defer g.updateAccess.Unlock()
 	var (
@@ -580,5 +585,77 @@ func (g *URLTestGroup) performUpdateCheck() bool {
 	if updated {
 		g.interruptGroup.Interrupt(g.interruptExternalConnections)
 	}
+	if g.eventListener != nil {
+		g.notifySelected(reason, selectedOutboundTCP, g.selectedOutboundTCP.Load(), selectedOutboundUDP, g.selectedOutboundUDP.Load())
+		g.notifyHealth(ctx, reason)
+	}
 	return selected
+}
+
+func (g *URLTestGroup) notifySelected(reason string, fromTCP, toTCP, fromUDP, toUDP adapter.Outbound) {
+	tcpChanged := fromTCP != nil && fromTCP != toTCP
+	udpChanged := fromUDP != nil && fromUDP != toUDP
+	if tcpChanged && udpChanged && fromTCP == fromUDP && toTCP == toUDP {
+		g.notifySelectedNetwork(reason, "", fromTCP, toTCP)
+		return
+	}
+	if tcpChanged {
+		g.notifySelectedNetwork(reason, N.NetworkTCP, fromTCP, toTCP)
+	}
+	if udpChanged {
+		g.notifySelectedNetwork(reason, N.NetworkUDP, fromUDP, toUDP)
+	}
+}
+
+func (g *URLTestGroup) notifySelectedNetwork(reason string, network string, from, to adapter.Outbound) {
+	g.eventListener.NotifyOutboundGroupEvent(adapter.OutboundGroupEvent{
+		Type:    adapter.OutboundGroupEventSelected,
+		Group:   g.tag,
+		Network: network,
+		From:    from.Tag(),
+		To:      to.Tag(),
+		Reason:  reason,
+		Time:    time.Now(),
+	})
+}
+
+// notifyHealth reports members whose availability flipped since the last check.
+// Members are assumed available until the first URL test of the group completes.
+func (g *URLTestGroup) notifyHealth(ctx context.Context, reason string) {
+	if ctx.Err() != nil {
+		return
+	}
+	if g.memberAvailable == nil {
+		if reason != adapter.OutboundGroupEventReasonURLTest {
+			return
+		}
+		g.memberAvailable = make(map[string]bool, len(g.outbounds))
+		for _, detour := range g.outbounds {
+			g.memberAvailable[detour.Tag()] = true
+		}
+	}
+	for _, detour := range g.outbounds {
+		history := g.history.LoadURLTestHistory(RealTag(detour, N.NetworkTCP))
+		available := history != nil
+		if g.memberAvailable[detour.Tag()] == available {
+			continue
+		}
+		g.memberAvailable[detour.Tag()] = available
+		event := adapter.OutboundGroupEvent{
+			Type:     adapter.OutboundGroupEventHealth,
+			Group:    g.tag,
+			Outbound: detour.Tag(),
+			Reason:   reason,
+			Time:     time.Now(),
+		}
+		if available {
+			event.From = adapter.OutboundGroupHealthUnavailable
+			event.To = adapter.OutboundGroupHealthAvailable
+			event.Delay = history.Delay
+		} else {
+			event.From = adapter.OutboundGroupHealthAvailable
+			event.To = adapter.OutboundGroupHealthUnavailable
+		}
+		g.eventListener.NotifyOutboundGroupEvent(event)
+	}
 }

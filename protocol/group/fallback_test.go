@@ -69,13 +69,13 @@ func (f *fallbackTest) round(available ...string) {
 		}
 	}
 	f.group.fallback.updateStreaks(f.group)
-	f.group.performUpdateCheck()
+	f.group.performUpdateCheck(context.Background(), adapter.OutboundGroupEventReasonURLTest)
 }
 
 // fail simulates a connection error outside a health check.
 func (f *fallbackTest) fail(tag string) {
 	f.group.history.DeleteURLTestHistory(tag)
-	f.group.performUpdateCheck()
+	f.group.performUpdateCheck(context.Background(), adapter.OutboundGroupEventReasonHistoryUpdate)
 }
 
 func (f *fallbackTest) requireSelected(tag string) {
@@ -139,7 +139,7 @@ func TestFallbackRecoverAfter(t *testing.T) {
 	f.round("a", "b", "c")
 	f.round("a", "b", "c")
 	f.group.history.DeleteURLTestHistory("a")
-	f.group.performUpdateCheck()
+	f.group.performUpdateCheck(context.Background(), adapter.OutboundGroupEventReasonURLTest)
 	f.round("a", "b", "c")
 	f.round("a", "b", "c")
 	f.requireSelected("b")
@@ -180,7 +180,7 @@ func TestFallbackStaleResultNotCounted(t *testing.T) {
 	for range 3 {
 		// no new check result for a
 		f.group.fallback.updateStreaks(f.group)
-		f.group.performUpdateCheck()
+		f.group.performUpdateCheck(context.Background(), adapter.OutboundGroupEventReasonURLTest)
 	}
 	f.requireSelected("b")
 	f.round("a", "b")

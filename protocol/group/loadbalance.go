@@ -100,7 +100,7 @@ func (s *LoadBalance) Start(stage adapter.StartStage, scope *adapter.Scope) erro
 			}
 			outbounds = append(outbounds, detour)
 		}
-		group, err := NewURLTestGroup(s.ctx, s.outbound, s.logger, outbounds, s.link, s.interval, 0, s.idleTimeout, s.interruptExternalConnections)
+		group, err := NewURLTestGroup(s.ctx, s.outbound, s.logger, s.Tag(), outbounds, s.link, s.interval, 0, s.idleTimeout, s.interruptExternalConnections)
 		if err != nil {
 			return err
 		}
@@ -167,7 +167,7 @@ func (s *LoadBalance) CheckOutbounds() {
 }
 
 func (s *LoadBalance) PerformUpdateCheck() {
-	if s.performUpdateCheck() {
+	if s.performUpdateCheck(s.ctx, adapter.OutboundGroupEventReasonHistoryUpdate) {
 		s.group.history.NotifyUpdated()
 	}
 }
@@ -328,9 +328,14 @@ func (s *LoadBalance) healthySignature(network string) string {
 
 // performUpdateCheck interrupts the group's connections when the set of
 // healthy members changed, since that moves destinations between members.
-func (s *LoadBalance) performUpdateCheck() bool {
+// A load balance group has no single selected member, so it reports only
+// member health changes to the group event listener.
+func (s *LoadBalance) performUpdateCheck(ctx context.Context, reason string) bool {
 	s.updateAccess.Lock()
 	defer s.updateAccess.Unlock()
+	if s.group.eventListener != nil {
+		s.group.notifyHealth(ctx, reason)
+	}
 	healthyTCP := s.healthySignature(N.NetworkTCP)
 	healthyUDP := s.healthySignature(N.NetworkUDP)
 	if healthyTCP == s.healthyTCP && healthyUDP == s.healthyUDP {

@@ -126,6 +126,7 @@ nav:
           - Cache File: configuration/experimental/cache-file.md
           - Clash API: configuration/experimental/clash-api.md
           - V2Ray API: configuration/experimental/v2ray-api.md
+          - Group Webhook: configuration/experimental/group-webhook.md
       - Shared:
           - Listen Fields: configuration/shared/listen.md
           - Dial Fields: configuration/shared/dial.md
@@ -307,6 +308,7 @@ plugins:
 
             Experimental: 实验性
             Cache File: 缓存文件
+            Group Webhook: 组 Webhook
 
             Shared: 通用
             Listen Fields: 监听字段

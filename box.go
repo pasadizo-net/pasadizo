@@ -25,6 +25,7 @@ import (
 	"github.com/sagernet/sing-box/experimental/cachefile"
 	"github.com/sagernet/sing-box/experimental/clashmode"
 	"github.com/sagernet/sing-box/experimental/deprecated"
+	"github.com/sagernet/sing-box/experimental/groupwebhook"
 	"github.com/sagernet/sing-box/log"
 	"github.com/sagernet/sing-box/option"
 	"github.com/sagernet/sing-box/protocol/direct"
@@ -402,6 +403,14 @@ func New(options Options) (*Box, error) {
 		cacheFile := cachefile.New(ctx, logFactory.NewLogger("cache-file"), common.PtrValueOrDefault(experimentalOptions.CacheFile))
 		service.MustRegister[adapter.CacheFile](ctx, cacheFile)
 		internalServices = append(internalServices, cacheFile)
+	}
+	if experimentalOptions.GroupWebhook != nil {
+		groupWebhook, err := groupwebhook.New(ctx, logFactory.NewLogger("group-webhook"), *experimentalOptions.GroupWebhook)
+		if err != nil {
+			return nil, E.Cause(err, "create group-webhook")
+		}
+		service.MustRegister[adapter.OutboundGroupEventListener](ctx, groupWebhook)
+		internalServices = append(internalServices, groupWebhook)
 	}
 	if needClashAPI {
 		clashServer, err := experimental.NewClashServer(ctx, logFactory.(log.ObservableFactory), common.PtrValueOrDefault(experimentalOptions.ClashAPI))

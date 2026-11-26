@@ -5219,8 +5219,39 @@
         "v2ray_api": {
           "$ref": "#/$defs/V2RayAPIOptions"
         },
+        "group_webhook": {
+          "$ref": "#/$defs/GroupWebhookOptions"
+        },
         "debug": {
           "$ref": "#/$defs/DebugOptions"
+        }
+      },
+      "additionalProperties": false
+    },
+    "GroupWebhookOptions": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "type": "string"
+        },
+        "headers": {
+          "$ref": "#/$defs/HTTPHeader"
+        },
+        "http_client": {
+          "$ref": "#/$defs/HTTPClientReference"
+        },
+        "timeout": {
+          "$ref": "#/$defs/Duration"
+        },
+        "max_attempts": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "queue_size": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
         }
       },
       "additionalProperties": false

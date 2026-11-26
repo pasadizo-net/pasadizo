@@ -227,11 +227,11 @@ func TestLoadBalanceUpdateCheck(t *testing.T) {
 	t.Parallel()
 	outbounds := newTestOutbounds(3)
 	s := newTestLoadBalance(C.LoadBalanceStrategyConsistentHashing, outbounds...)
-	require.True(t, s.performUpdateCheck())
-	require.False(t, s.performUpdateCheck())
+	require.True(t, s.performUpdateCheck(context.Background(), adapter.OutboundGroupEventReasonURLTest))
+	require.False(t, s.performUpdateCheck(context.Background(), adapter.OutboundGroupEventReasonURLTest))
 	markTested(s, outbounds[0], outbounds[1])
-	require.True(t, s.performUpdateCheck())
-	require.False(t, s.performUpdateCheck())
+	require.True(t, s.performUpdateCheck(context.Background(), adapter.OutboundGroupEventReasonURLTest))
+	require.False(t, s.performUpdateCheck(context.Background(), adapter.OutboundGroupEventReasonURLTest))
 }
 
 func TestNewLoadBalanceOptions(t *testing.T) {
