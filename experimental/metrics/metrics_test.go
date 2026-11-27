@@ -50,6 +50,11 @@ func TestWriteMetrics(t *testing.T) {
 					Time:  time.UnixMilli(1764240000500),
 					Delay: 85,
 				},
+				// two QUIC connections of one outbound
+				Transport: []adapter.TransportStats{
+					{PacketsSent: 100, PacketsReceived: 90, PacketsLost: 3, SmoothedRTT: 204500 * time.Microsecond},
+					{PacketsSent: 20, PacketsReceived: 10, PacketsLost: 1, SmoothedRTT: 180 * time.Millisecond},
+				},
 			},
 			{
 				Tag:         `odd "tag"` + "\\\n",
@@ -96,6 +101,21 @@ sing_box_outbound_delay_milliseconds{outbound="hy2-1"} 85
 # HELP sing_box_outbound_delay_timestamp_seconds Unix time of the last successful URL test per outbound.
 # TYPE sing_box_outbound_delay_timestamp_seconds gauge
 sing_box_outbound_delay_timestamp_seconds{outbound="hy2-1"} 1764240000.5
+# HELP sing_box_outbound_transport_connections Open transport connections (QUIC) of the outbound to its server.
+# TYPE sing_box_outbound_transport_connections gauge
+sing_box_outbound_transport_connections{outbound="hy2-1"} 2
+# HELP sing_box_outbound_transport_rtt_milliseconds Smoothed round trip time of the outbound's transport connections, the highest of them; 0 without a connection.
+# TYPE sing_box_outbound_transport_rtt_milliseconds gauge
+sing_box_outbound_transport_rtt_milliseconds{outbound="hy2-1"} 204.5
+# HELP sing_box_outbound_transport_packets_sent_total Packets sent on the outbound's open transport connections. Starts again at zero with a new connection.
+# TYPE sing_box_outbound_transport_packets_sent_total counter
+sing_box_outbound_transport_packets_sent_total{outbound="hy2-1"} 120
+# HELP sing_box_outbound_transport_packets_received_total Packets received on the outbound's open transport connections. Starts again at zero with a new connection.
+# TYPE sing_box_outbound_transport_packets_received_total counter
+sing_box_outbound_transport_packets_received_total{outbound="hy2-1"} 100
+# HELP sing_box_outbound_transport_packets_lost_total Packets declared lost on the outbound's open transport connections. Starts again at zero with a new connection.
+# TYPE sing_box_outbound_transport_packets_lost_total counter
+sing_box_outbound_transport_packets_lost_total{outbound="hy2-1"} 4
 # HELP sing_box_group_selected Whether the member is the selected outbound of the group (1) or not (0).
 # TYPE sing_box_group_selected gauge
 sing_box_group_selected{group="proxy",outbound="hy2-1"} 1
