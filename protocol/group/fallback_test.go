@@ -68,6 +68,7 @@ func (f *fallbackTest) round(available ...string) {
 			f.group.history.DeleteURLTestHistory(detour.Tag())
 		}
 	}
+	f.group.tested.Store(true)
 	f.group.fallback.updateStreaks(f.group)
 	f.group.performUpdateCheck(context.Background(), adapter.OutboundGroupEventReasonURLTest)
 }

@@ -6,6 +6,7 @@ import (
 	"maps"
 	"net"
 	"slices"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -46,11 +47,13 @@ type URLTest struct {
 	link                         string
 	interval                     time.Duration
 	tolerance                    uint16
+	timeout                      time.Duration
 	idleTimeout                  time.Duration
 	group                        *URLTestGroup
 	checkAccess                  sync.Mutex
 	interruptExternalConnections bool
 	fallback                     *fallbackStrategy
+	listeners                    healthListeners
 }
 
 func NewURLTest(ctx context.Context, router adapter.Router, logger log.ContextLogger, tag string, options option.URLTestOutboundOptions) (adapter.Outbound, error) {
@@ -63,6 +66,7 @@ func NewURLTest(ctx context.Context, router adapter.Router, logger log.ContextLo
 		link:                         options.URL,
 		interval:                     time.Duration(options.Interval),
 		tolerance:                    options.Tolerance,
+		timeout:                      time.Duration(options.Timeout),
 		idleTimeout:                  time.Duration(options.IdleTimeout),
 		interruptExternalConnections: options.InterruptExistConnections,
 	}
@@ -88,17 +92,39 @@ func (s *URLTest) Start(stage adapter.StartStage, scope *adapter.Scope) error {
 			}
 			outbounds = append(outbounds, detour)
 		}
-		group, err := NewURLTestGroup(s.ctx, s.outbound, s.logger, s.Tag(), outbounds, s.link, s.interval, s.tolerance, s.idleTimeout, s.interruptExternalConnections)
+		group, err := NewURLTestGroup(s.ctx, s.outbound, s.logger, s.Tag(), outbounds, s.link, s.interval, s.tolerance, s.timeout, s.idleTimeout, s.interruptExternalConnections)
 		if err != nil {
 			return err
 		}
 		group.fallback = s.fallback
+		group.listeners = &s.listeners
 		s.group = group
+		if s.fallback != nil {
+			// a fallback group selects again as soon as a member group's
+			// health changes, instead of at its next test round
+			for _, detour := range outbounds {
+				if source, isSource := detour.(healthSource); isSource {
+					source.addHealthListener(s.memberHealthChanged)
+				}
+			}
+		}
 	case adapter.StartStateStarted:
 		s.group.PostStart()
 		scope.Add(s.group.Close)
 	}
 	return nil
+}
+
+func (s *URLTest) addHealthListener(listener func()) {
+	s.listeners.add(listener)
+}
+
+func (s *URLTest) memberHealthChanged() {
+	group := s.group
+	if group == nil || !group.started.Load() || group.closed.Load() {
+		return
+	}
+	s.PerformUpdateCheck()
 }
 
 func (s *URLTest) All() []string {
@@ -233,9 +259,11 @@ type URLTestGroup struct {
 	link                         string
 	interval                     time.Duration
 	tolerance                    uint16
+	timeout                      time.Duration
 	idleTimeout                  time.Duration
 	history                      *urltest.HistoryStorage
-	checking                     atomic.Bool
+	checkAccess                  sync.Mutex
+	checkDone                    chan struct{}
 	tested                       atomic.Bool
 	updateCheck                  func(ctx context.Context, reason string) bool
 	selectedOutboundTCP          common.TypedValue[adapter.Outbound]
@@ -252,14 +280,19 @@ type URLTestGroup struct {
 	fallback                     *fallbackStrategy
 	eventListener                adapter.OutboundGroupEventListener
 	memberAvailable              map[string]bool
+	listeners                    *healthListeners
+	healthState                  string
 }
 
-func NewURLTestGroup(ctx context.Context, outboundManager adapter.OutboundManager, logger log.Logger, tag string, outbounds []adapter.Outbound, link string, interval time.Duration, tolerance uint16, idleTimeout time.Duration, interruptExternalConnections bool) (*URLTestGroup, error) {
+func NewURLTestGroup(ctx context.Context, outboundManager adapter.OutboundManager, logger log.Logger, tag string, outbounds []adapter.Outbound, link string, interval time.Duration, tolerance uint16, timeout time.Duration, idleTimeout time.Duration, interruptExternalConnections bool) (*URLTestGroup, error) {
 	if interval == 0 {
 		interval = C.DefaultURLTestInterval
 	}
 	if tolerance == 0 {
 		tolerance = 50
+	}
+	if timeout == 0 {
+		timeout = C.TCPTimeout
 	}
 	if idleTimeout == 0 {
 		idleTimeout = C.DefaultURLTestIdleTimeout
@@ -280,6 +313,7 @@ func NewURLTestGroup(ctx context.Context, outboundManager adapter.OutboundManage
 		link:                         link,
 		interval:                     interval,
 		tolerance:                    tolerance,
+		timeout:                      timeout,
 		idleTimeout:                  idleTimeout,
 		history:                      history,
 		close:                        make(chan struct{}),
@@ -412,11 +446,28 @@ func (g *URLTestGroup) URLTest(ctx context.Context) (map[string]uint16, error) {
 }
 
 func (g *URLTestGroup) urlTest(ctx context.Context, force bool) (map[string]uint16, error) {
-	if g.checking.Swap(true) {
+	// A round already running is not started again: the caller waits for
+	// it instead, so that a group which tests this one as a member reads the
+	// result of that round and not the history from before it.
+	g.checkAccess.Lock()
+	if running := g.checkDone; running != nil {
+		g.checkAccess.Unlock()
+		select {
+		case <-running:
+		case <-ctx.Done():
+		}
 		return make(map[string]uint16), nil
 	}
-	defer g.checking.Store(false)
-	result := urlTestOutbounds(ctx, g.outbound, g.history, g.logger, g.outbounds, g.link, g.interval, force)
+	done := make(chan struct{})
+	g.checkDone = done
+	g.checkAccess.Unlock()
+	defer func() {
+		g.checkAccess.Lock()
+		g.checkDone = nil
+		g.checkAccess.Unlock()
+		close(done)
+	}()
+	result := urlTestOutbounds(ctx, g.outbound, g.history, g.logger, g.outbounds, g.link, g.interval, g.timeout, force)
 	if ctx.Err() == nil {
 		g.tested.Store(true)
 	}
@@ -449,15 +500,16 @@ type urlTestBatch struct {
 	result   map[string]uint16
 	stored   map[string]*adapter.URLTestHistory
 	deleted  []string
+	timeout  time.Duration
 }
 
 func URLTestOutbounds(ctx context.Context, outboundManager adapter.OutboundManager, history *urltest.HistoryStorage, logger log.Logger, outbounds []adapter.Outbound, link string, interval time.Duration, force bool) map[string]uint16 {
-	result := urlTestOutbounds(ctx, outboundManager, history, logger, outbounds, link, interval, force)
+	result := urlTestOutbounds(ctx, outboundManager, history, logger, outbounds, link, interval, C.TCPTimeout, force)
 	history.NotifyUpdated()
 	return result
 }
 
-func urlTestOutbounds(ctx context.Context, outboundManager adapter.OutboundManager, history *urltest.HistoryStorage, logger log.Logger, outbounds []adapter.Outbound, link string, interval time.Duration, force bool) map[string]uint16 {
+func urlTestOutbounds(ctx context.Context, outboundManager adapter.OutboundManager, history *urltest.HistoryStorage, logger log.Logger, outbounds []adapter.Outbound, link string, interval time.Duration, timeout time.Duration, force bool) map[string]uint16 {
 	b, _ := batch.New(ctx, batch.WithConcurrencyNum[any](10))
 	testBatch := &urlTestBatch{
 		ctx:      ctx,
@@ -468,6 +520,7 @@ func urlTestOutbounds(ctx context.Context, outboundManager adapter.OutboundManag
 		checked:  make(map[string]bool),
 		result:   make(map[string]uint16),
 		stored:   make(map[string]*adapter.URLTestHistory),
+		timeout:  timeout,
 	}
 	testBatch.test(outbounds, link, interval, force)
 	b.Wait()
@@ -522,7 +575,7 @@ func (b *urlTestBatch) test(outbounds []adapter.Outbound, link string, interval 
 			}
 			b.checked[tag] = true
 			b.batch.Go(tag, func() (any, error) {
-				testCtx, cancel := context.WithTimeout(b.ctx, C.TCPTimeout)
+				testCtx, cancel := context.WithTimeout(b.ctx, b.timeout)
 				defer cancel()
 				testChan := make(chan urlTestResult, 1)
 				go func() {
@@ -560,6 +613,18 @@ func (b *urlTestBatch) test(outbounds []adapter.Outbound, link string, interval 
 }
 
 func (g *URLTestGroup) performUpdateCheck(ctx context.Context, reason string) bool {
+	selected, healthChanged := g.updateSelected(ctx, reason)
+	if healthChanged && g.listeners != nil {
+		// the listeners run after updateAccess is released, so that a
+		// parent group that selects again cannot wait on this one
+		g.listeners.notify()
+	}
+	return selected
+}
+
+// updateSelected selects again and reports whether a member was selected and
+// whether the selected members or their health changed.
+func (g *URLTestGroup) updateSelected(ctx context.Context, reason string) (bool, bool) {
 	g.updateAccess.Lock()
 	defer g.updateAccess.Unlock()
 	var (
@@ -589,7 +654,35 @@ func (g *URLTestGroup) performUpdateCheck(ctx context.Context, reason string) bo
 		g.notifySelected(reason, selectedOutboundTCP, g.selectedOutboundTCP.Load(), selectedOutboundUDP, g.selectedOutboundUDP.Load())
 		g.notifyHealth(ctx, reason)
 	}
-	return selected
+	healthState := g.selectedHealthState()
+	healthChanged := healthState != g.healthState
+	g.healthState = healthState
+	return selected, healthChanged
+}
+
+// selectedHealthState names the selected members and whether each has a
+// passed test, which is what a group holding this one as a member sees.
+func (g *URLTestGroup) selectedHealthState() string {
+	var builder strings.Builder
+	for _, network := range []string{N.NetworkTCP, N.NetworkUDP} {
+		var selected adapter.Outbound
+		if network == N.NetworkTCP {
+			selected = g.selectedOutboundTCP.Load()
+		} else {
+			selected = g.selectedOutboundUDP.Load()
+		}
+		if selected == nil {
+			builder.WriteString("-\x00")
+			continue
+		}
+		realTag := RealTag(selected, network)
+		builder.WriteString(realTag)
+		if realTag != "" && g.history.LoadURLTestHistory(realTag) != nil {
+			builder.WriteString("+")
+		}
+		builder.WriteByte(0)
+	}
+	return builder.String()
 }
 
 func (g *URLTestGroup) notifySelected(reason string, fromTCP, toTCP, fromUDP, toUDP adapter.Outbound) {

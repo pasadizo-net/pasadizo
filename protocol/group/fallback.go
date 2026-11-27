@@ -36,6 +36,7 @@ func NewFallback(ctx context.Context, router adapter.Router, logger log.ContextL
 		tags:                         options.Outbounds,
 		link:                         options.URL,
 		interval:                     time.Duration(options.Interval),
+		timeout:                      time.Duration(options.Timeout),
 		idleTimeout:                  time.Duration(options.IdleTimeout),
 		interruptExternalConnections: options.InterruptExistConnections,
 		fallback:                     newFallbackStrategy(recoverAfter),
@@ -115,6 +116,17 @@ func (f *fallbackStrategy) selectOutbound(g *URLTestGroup, network string) (adap
 	}
 	f.access.Lock()
 	defer f.access.Unlock()
+	if !g.tested.Load() {
+		// until the first test round has finished, the first outbound is
+		// taken as available, so that a start does not run on a later one
+		// that happened to pass its test first
+		for _, detour := range g.outbounds {
+			if common.Contains(detour.Network(), network) {
+				return detour, true
+			}
+		}
+		return nil, false
+	}
 	var firstSupported, firstAvailable adapter.Outbound
 	for _, detour := range g.outbounds {
 		if !common.Contains(detour.Network(), network) {

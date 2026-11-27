@@ -74,7 +74,7 @@ func newTestURLTestGroup(t *testing.T, listener adapter.OutboundGroupEventListen
 	for _, tag := range tags {
 		outbounds = append(outbounds, newEventTestOutbound(tag))
 	}
-	group, err := NewURLTestGroup(ctx, nil, logger.NOP(), "auto", outbounds, "", 0, 0, 0, false)
+	group, err := NewURLTestGroup(ctx, nil, logger.NOP(), "auto", outbounds, "", 0, 0, 0, 0, false)
 	require.NoError(t, err)
 	return group, history
 }
@@ -303,6 +303,7 @@ func TestFallbackGroupEvents(t *testing.T) {
 				history.DeleteURLTestHistory(tag)
 			}
 		}
+		group.tested.Store(true)
 		group.fallback.updateStreaks(group)
 		group.performUpdateCheck(ctx, adapter.OutboundGroupEventReasonURLTest)
 		time.Sleep(time.Millisecond)

@@ -131,7 +131,7 @@ func (m *ConnectionManager) NewConnection(ctx context.Context, this N.Dialer, co
 			dialerString = " using outbound/" + outbound.Type() + "[" + outbound.Tag() + "]"
 		}
 		err = E.Cause(err, "open connection to ", remoteString, dialerString)
-		m.deleteURLTestHistory(metadata.OutboundChain, err)
+		m.reportConnectionFailure(metadata, N.NetworkTCP, err)
 		N.CloseOnHandshakeFailure(conn, onClose, err)
 		m.logger.ErrorContext(ctx, err)
 		return
@@ -218,7 +218,7 @@ func (m *ConnectionManager) NewPacketConnection(ctx context.Context, this N.Dial
 				dialerString = " using outbound/" + outbound.Type() + "[" + outbound.Tag() + "]"
 			}
 			err = E.Cause(err, "open packet connection to ", remoteString, dialerString)
-			m.deleteURLTestHistory(metadata.OutboundChain, err)
+			m.reportConnectionFailure(metadata, N.NetworkUDP, err)
 			N.CloseOnHandshakeFailure(conn, onClose, err)
 			m.logger.ErrorContext(ctx, err)
 			return
@@ -244,7 +244,7 @@ func (m *ConnectionManager) NewPacketConnection(ctx context.Context, this N.Dial
 				dialerString = " using outbound/" + outbound.Type() + "[" + outbound.Tag() + "]"
 			}
 			err = E.Cause(err, "listen packet connection", dialerString)
-			m.deleteURLTestHistory(metadata.OutboundChain, err)
+			m.reportConnectionFailure(metadata, N.NetworkUDP, err)
 			N.CloseOnHandshakeFailure(conn, onClose, err)
 			m.logger.ErrorContext(ctx, err)
 			return
@@ -311,26 +311,41 @@ func (m *ConnectionManager) NewPacketConnection(ctx context.Context, this N.Dial
 	go m.packetConnectionCopy(ctx, destination, conn, true, &done, onClose)
 }
 
-func (m *ConnectionManager) deleteURLTestHistory(chain []adapter.Outbound, err error) {
+// reportConnectionFailure tells the groups in the connection's outbound chain
+// that the chosen outbound failed. URL test groups below the last destination
+// group in the chain drop the history of the outbound and select again. A
+// destination group spreads destinations over its members, so one failed
+// destination says nothing about the member: the group above it is not told
+// directly, and the destination group itself gets the failure with its
+// member and the destination, to decide on the member's health.
+func (m *ConnectionManager) reportConnectionFailure(metadata adapter.InboundContext, network string, err error) {
 	if E.IsClosedOrCanceled(err) {
 		return
 	}
-	urlTestGroups := common.FilterIsInstance(chain, func(it adapter.Outbound) (adapter.URLTestGroup, bool) {
-		// a destination group spreads destinations over its members, so one
-		// failed destination says nothing about the member: its health comes
-		// from URL tests only
+	chain := metadata.OutboundChain
+	if len(chain) == 0 {
+		return
+	}
+	destinationIndex := -1
+	for i, it := range chain {
 		if _, isDestinationGroup := it.(adapter.DestinationOutboundGroup); isDestinationGroup {
-			return nil, false
+			destinationIndex = i
 		}
+	}
+	urlTestGroups := common.FilterIsInstance(chain[destinationIndex+1:], func(it adapter.Outbound) (adapter.URLTestGroup, bool) {
 		group, isURLTestGroup := it.(adapter.URLTestGroup)
 		return group, isURLTestGroup
 	})
-	if len(urlTestGroups) == 0 {
-		return
+	if len(urlTestGroups) > 0 {
+		m.urlTestHistory.DeleteURLTestHistory(chain[len(chain)-1].Tag())
+		for _, group := range slices.Backward(urlTestGroups) {
+			group.PerformUpdateCheck()
+		}
 	}
-	m.urlTestHistory.DeleteURLTestHistory(chain[len(chain)-1].Tag())
-	for _, group := range slices.Backward(urlTestGroups) {
-		group.PerformUpdateCheck()
+	if destinationIndex >= 0 && destinationIndex+1 < len(chain) {
+		if reporter, isReporter := chain[destinationIndex].(adapter.ConnectionFailureReporter); isReporter {
+			reporter.ReportConnectionFailure(network, chain[destinationIndex+1], metadata.Destination, err)
+		}
 	}
 }
 

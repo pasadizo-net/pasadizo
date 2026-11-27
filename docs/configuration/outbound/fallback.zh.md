@@ -18,6 +18,7 @@ icon: material/new-box
   ],
   "url": "",
   "interval": "",
+  "timeout": "",
   "idle_timeout": "",
   "recover_after": 3,
   "interrupt_exist_connections": false
@@ -29,6 +30,10 @@ icon: material/new-box
 当选中的出站测试或连接失败时，选择列表中下一个可用的出站。
 
 列表中靠前的出站需连续通过 `recover_after` 次测试后才会被重新选中。
+
+在第一轮测试完成之前，选择列表中的第一个出站。
+
+当列表中的出站是一个组（`urltest`、`fallback` 或 `loadbalance`），且其健康状态在本组两次测试之间发生变化时（例如其自身的测试或断路器发现其所有出站均不可用），立即重新选择出站。
 
 ### 字段
 
@@ -45,6 +50,14 @@ icon: material/new-box
 #### interval
 
 测试间隔。 默认使用 `3m`。
+
+#### timeout
+
+!!! question "自 sing-box 1.15.0 起"
+
+单次 URL 测试的超时时间。默认使用 `15s`。
+
+在此时间内没有响应的测试视为失败。较短的超时可以更快地发现失效的路径：经由数据包被丢弃的 QUIC 代理时，测试否则会等待完整的 `15s`。
 
 #### idle_timeout
 
