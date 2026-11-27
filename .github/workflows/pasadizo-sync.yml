@@ -1,0 +1,104 @@
+# Weekly upstream sync: merge sing-box's `testing` branch into a new branch,
+# build and test it, and open a pull request against main. Nothing reaches main
+# without a person reading the upstream changes and merging the pull request.
+# On a merge conflict it opens an issue instead.
+name: pasadizo-sync
+
+on:
+  schedule:
+    - cron: "17 3 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      UPSTREAM: https://github.com/SagerNet/sing-box.git
+      UPSTREAM_BRANCH: testing
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - name: Fetch upstream
+        id: fetch
+        run: |
+          git remote add upstream "$UPSTREAM"
+          git fetch --no-tags upstream "$UPSTREAM_BRANCH"
+          head=$(git rev-parse "upstream/$UPSTREAM_BRANCH")
+          echo "head=$head" >>"$GITHUB_OUTPUT"
+          echo "short=${head:0:8}" >>"$GITHUB_OUTPUT"
+          if git merge-base --is-ancestor "$head" HEAD; then
+            echo "Upstream $head is already in main."
+            echo "skip=true" >>"$GITHUB_OUTPUT"
+          fi
+      - name: Merge
+        id: merge
+        if: steps.fetch.outputs.skip != 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          branch="sync/upstream-${{ steps.fetch.outputs.short }}"
+          echo "branch=$branch" >>"$GITHUB_OUTPUT"
+          git switch -c "$branch"
+          if ! git merge --no-edit -m "Merge upstream ${UPSTREAM_BRANCH} ${{ steps.fetch.outputs.short }}" "upstream/$UPSTREAM_BRANCH"; then
+            git diff --name-only --diff-filter=U >conflicts.txt
+            git merge --abort
+            echo "conflict=true" >>"$GITHUB_OUTPUT"
+          fi
+      - name: Report a conflict
+        if: steps.merge.outputs.conflict == 'true'
+        run: |
+          title="Upstream sync conflict at ${{ steps.fetch.outputs.short }}"
+          bt='`'
+          body="Merging upstream ${bt}${UPSTREAM_BRANCH}${bt} at ${{ steps.fetch.outputs.head }} into main conflicts in:
+
+          $(sed 's/^/- /' conflicts.txt)
+
+          Resolve it by hand on a branch and open a pull request."
+          gh issue list --state open --search "$title in:title" --json number -q '.[].number' | grep -q . ||
+            gh issue create --title "$title" --body "$body"
+      - name: Build and test the merge
+        id: test
+        if: steps.fetch.outputs.skip != 'true' && steps.merge.outputs.conflict != 'true'
+        continue-on-error: true
+        run: |
+          tags="$(cat release/DEFAULT_BUILD_TAGS_OTHERS)"
+          for arch in amd64 arm64; do
+            GOOS=linux GOARCH=$arch CGO_ENABLED=0 go build -trimpath -tags "$tags" \
+              -ldflags "$(cat release/LDFLAGS) -s -w -buildid=" -o /dev/null ./cmd/sing-box
+          done
+          pkgs=(./adapter/... ./common/fairshare/... ./common/trafficcontrol/... ./option/...
+            ./protocol/group/... ./protocol/hysteria2/... ./route/... ./experimental/clashapi/...
+            ./experimental/groupwebhook/... ./transport/masque/...)
+          go test -race -count=1 -tags "$tags" -ldflags "$(cat release/LDFLAGS)" "${pkgs[@]}" 2>&1 | tee test.log
+      - name: Open the pull request
+        if: steps.fetch.outputs.skip != 'true' && steps.merge.outputs.conflict != 'true'
+        run: |
+          branch="${{ steps.merge.outputs.branch }}"
+          git push origin "$branch"
+          result="passed"
+          [ "${{ steps.test.outcome }}" = "success" ] || result="FAILED (see the workflow run)"
+          range="$(git merge-base HEAD~1 "upstream/$UPSTREAM_BRANCH")..upstream/$UPSTREAM_BRANCH"
+          bt='`'
+          log="$(git log --oneline "$range" | head -100)"
+          body="Weekly merge of upstream ${bt}${UPSTREAM_BRANCH}${bt} at ${{ steps.fetch.outputs.head }}.
+
+          Build and tests: ${result}.
+
+          Upstream commits in this merge:
+
+          ${bt}${bt}${bt}
+          ${log}
+          ${bt}${bt}${bt}
+
+          Read the upstream changes before merging: this code runs on the house gateways."
+          gh pr create --base main --head "$branch" --title "Sync upstream ${UPSTREAM_BRANCH} ${{ steps.fetch.outputs.short }}" --body "$body"

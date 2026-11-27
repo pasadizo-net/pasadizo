@@ -1,0 +1,41 @@
+# Pasadizo CI: build and test the packages Pasadizo changes, on every push to
+# main and every pull request. Upstream's own workflows (lint.yml, test.yml)
+# run only on upstream's branch names, so they do not run here.
+name: pasadizo-ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - name: Build (linux amd64 and arm64, release tags)
+        run: |
+          for arch in amd64 arm64; do
+            GOOS=linux GOARCH=$arch CGO_ENABLED=0 go build -trimpath \
+              -tags "$(cat release/DEFAULT_BUILD_TAGS_OTHERS)" \
+              -ldflags "$(cat release/LDFLAGS) -s -w -buildid=" \
+              -o /dev/null ./cmd/sing-box
+          done
+      - name: Vet and test the packages Pasadizo changes
+        run: |
+          pkgs=(./adapter/... ./common/fairshare/... ./common/trafficcontrol/... ./constant/...
+            ./experimental/clashapi/... ./experimental/groupwebhook/... ./include/... ./option/...
+            ./protocol/group/... ./protocol/hysteria2/... ./protocol/masque/... ./route/...
+            ./transport/http/... ./transport/masque/...)
+          tags="$(cat release/DEFAULT_BUILD_TAGS_OTHERS)"
+          go vet -tags "$tags" "${pkgs[@]}"
+          # transport/masque needs -checklinkname=0 from release/LDFLAGS to link
+          go test -race -count=1 -tags "$tags" -ldflags "$(cat release/LDFLAGS)" "${pkgs[@]}"

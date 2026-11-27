@@ -1,0 +1,44 @@
+# Release: on a tag like v1.15.0-alpha.14-pasadizo.1, build static linux
+# binaries (amd64, arm64) with upstream's release tags and linker flags, write
+# their sha256, attest their provenance, and publish a GitHub release.
+name: pasadizo-release
+
+on:
+  push:
+    tags: ["v*-pasadizo.*"]
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+jobs:
+  ci:
+    uses: ./.github/workflows/pasadizo-ci.yml
+  release:
+    needs: ci
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - name: Build
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          mkdir dist
+          for arch in amd64 arm64; do
+            GOOS=linux GOARCH=$arch CGO_ENABLED=0 go build -trimpath \
+              -tags "$(cat release/DEFAULT_BUILD_TAGS_OTHERS)" \
+              -ldflags "-X github.com/sagernet/sing-box/constant.Version=${version} $(cat release/LDFLAGS) -s -w -buildid=" \
+              -o "dist/pasadizo-${version}-linux-${arch}" ./cmd/sing-box
+          done
+          (cd dist && sha256sum pasadizo-* >SHA256SUMS)
+      - uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: dist/pasadizo-*
+      - name: Publish
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/* --title "$GITHUB_REF_NAME" --notes-file .github/RELEASE_NOTES.md --prerelease
