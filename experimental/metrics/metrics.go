@@ -35,6 +35,7 @@ type Collector struct {
 	urlTestHistory *urltest.HistoryStorage
 	outbound       adapter.OutboundManager
 	endpoint       adapter.EndpointManager
+	sources        bool
 }
 
 // NewCollector reads the services it needs from the box context. The traffic
@@ -58,6 +59,8 @@ type metricsSnapshot struct {
 	Memory      uint64
 	Outbounds   []outboundMetrics
 	Groups      []groupMetrics
+	// Sources is nil unless the collector writes per-source metrics.
+	Sources []trafficcontrol.SourceStatistics
 }
 
 type outboundMetrics struct {
@@ -72,6 +75,14 @@ type groupMetrics struct {
 	Tag      string
 	Selected string
 	All      []string
+}
+
+// WithSources makes the collector also write the traffic and the open
+// connections of each source address, per inbound. One series per client
+// address: turn it on only where the clients are known.
+func (c *Collector) WithSources(enabled bool) *Collector {
+	c.sources = enabled
+	return c
 }
 
 // ServeHTTP writes the metrics in the Prometheus text format.
@@ -149,6 +160,9 @@ func (c *Collector) snapshot() *metricsSnapshot {
 			Connections: statistics.Connections,
 		})
 	}
+	if c.sources {
+		snapshot.Sources = c.trafficManager.SourceStatistics(true)
+	}
 	sort.Slice(snapshot.Outbounds, func(i, j int) bool {
 		return snapshot.Outbounds[i].Tag < snapshot.Outbounds[j].Tag
 	})
@@ -204,6 +218,21 @@ func writeMetrics(writer io.Writer, snapshot *metricsSnapshot) {
 		}
 	}
 
+	if snapshot.Sources != nil {
+		w.header("sing_box_source_connections", "gauge", "Number of open connections per source address and inbound.")
+		for _, source := range snapshot.Sources {
+			w.sample("sing_box_source_connections", sourceLabels(source), strconv.Itoa(source.Connections))
+		}
+		w.header("sing_box_source_upload_bytes_total", "counter", "Bytes sent per source address and inbound.")
+		for _, source := range snapshot.Sources {
+			w.sample("sing_box_source_upload_bytes_total", sourceLabels(source), strconv.FormatInt(source.Upload, 10))
+		}
+		w.header("sing_box_source_download_bytes_total", "counter", "Bytes received per source address and inbound.")
+		for _, source := range snapshot.Sources {
+			w.sample("sing_box_source_download_bytes_total", sourceLabels(source), strconv.FormatInt(source.Download, 10))
+		}
+	}
+
 	counters := snapshot.Counters
 	w.header("sing_box_inbound_connections_total", "counter", "Connections accepted per inbound.")
 	for _, inbound := range counters.Inbounds {
@@ -233,6 +262,10 @@ func writeMetrics(writer io.Writer, snapshot *metricsSnapshot) {
 	}
 	w.header("process_start_time_seconds", "gauge", "Start time of the process since unix epoch in seconds.")
 	w.sample("process_start_time_seconds", nil, strconv.FormatFloat(float64(snapshot.StartTime.UnixMilli())/1000, 'f', -1, 64))
+}
+
+func sourceLabels(source trafficcontrol.SourceStatistics) []string {
+	return []string{"source", source.Source.String(), "inbound", source.Inbound}
 }
 
 type metricsWriter struct {

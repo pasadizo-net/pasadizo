@@ -15,7 +15,8 @@ A listener that serves Prometheus metrics and nothing else. Unlike `GET /metrics
   "listen": "[::]:9000",
   "path": "/metrics",
   "username": "",
-  "password": ""
+  "password": "",
+  "sources": false
 }
 ```
 
@@ -43,6 +44,12 @@ No authentication if empty: keep the listener on a trusted address or behind a f
 
 HTTP basic authentication password. Needs `username`.
 
+#### sources
+
+Also serve the traffic and the open connections of each source address, per inbound: the numbers of the Clash API's `GET /stats/sources?group=inbound`.
+
+Each client address that ever connected adds three series, so keep it off on a server that anyone can reach, and turn it on where the clients are known, such as a home gateway. The Clash API's `GET /metrics` never writes them.
+
 ### Metrics
 
 The response is in the Prometheus text format, version 0.0.4. The Clash API's `GET /metrics` returns the same metrics.
@@ -64,6 +71,9 @@ The response is in the Prometheus text format, version 0.0.4. The Clash API's `G
 | `sing_box_outbound_dials_total`             | counter | `outbound`          | Dials through the outbound                                           |
 | `sing_box_outbound_dial_errors_total`       | counter | `outbound`          | Failed dials through the outbound                                    |
 | `sing_box_outbound_dial_duration_seconds`   | histogram | `outbound`        | Duration of dials through the outbound, failed ones included         |
+| `sing_box_source_connections`               | gauge   | `source`, `inbound` | Number of open connections per source address; only with `sources`  |
+| `sing_box_source_upload_bytes_total`        | counter | `source`, `inbound` | Bytes sent per source address; only with `sources`                   |
+| `sing_box_source_download_bytes_total`      | counter | `source`, `inbound` | Bytes received per source address; only with `sources`               |
 | `process_start_time_seconds`                | gauge   |                     | Start time of the process, in Unix seconds                           |
 
 Traffic is counted on the outbound that finally handles the connection, not on the groups that select it.

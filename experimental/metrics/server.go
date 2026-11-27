@@ -48,7 +48,7 @@ func NewServer(ctx context.Context, logger logger.ContextLogger, options option.
 		logger: logger,
 		listen: options.Listen,
 		httpServer: &http.Server{
-			Handler:           newHandler(NewCollector(ctx), path, options.Username, options.Password),
+			Handler:           newHandler(NewCollector(ctx).WithSources(options.Sources), path, options.Username, options.Password),
 			ReadHeaderTimeout: 10 * time.Second,
 		},
 	}, nil
