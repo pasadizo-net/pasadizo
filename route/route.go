@@ -54,9 +54,13 @@ func (r *Router) RouteConnection(ctx context.Context, conn net.Conn, metadata ad
 }
 
 func (r *Router) RouteConnectionEx(ctx context.Context, conn net.Conn, metadata adapter.InboundContext, onClose N.CloseHandlerFunc) {
+	r.metrics.InboundConnection(metadata.Inbound, N.NetworkTCP)
 	err := r.routeConnection(ctx, conn, metadata, onClose)
 	if err != nil {
 		N.CloseOnHandshakeFailure(conn, onClose, err)
+		if !R.IsRejected(err) {
+			r.metrics.InboundError(metadata.Inbound, err)
+		}
 		if E.IsClosedOrCanceled(err) || R.IsRejected(err) {
 			r.logger.DebugContext(ctx, "connection closed: ", err)
 		} else {
@@ -227,9 +231,13 @@ func (r *Router) RoutePacketConnection(ctx context.Context, conn N.PacketConn, m
 }
 
 func (r *Router) RoutePacketConnectionEx(ctx context.Context, conn N.PacketConn, metadata adapter.InboundContext, onClose N.CloseHandlerFunc) {
+	r.metrics.InboundConnection(metadata.Inbound, N.NetworkUDP)
 	err := r.routePacketConnection(ctx, conn, metadata, onClose)
 	if err != nil {
 		N.CloseOnHandshakeFailure(conn, onClose, err)
+		if !R.IsRejected(err) {
+			r.metrics.InboundError(metadata.Inbound, err)
+		}
 		if E.IsClosedOrCanceled(err) || R.IsRejected(err) {
 			r.logger.DebugContext(ctx, "connection closed: ", err)
 		} else {

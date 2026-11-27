@@ -8,6 +8,7 @@ import (
 
 	"github.com/pasadizo-net/pasadizo/adapter"
 	"github.com/pasadizo-net/pasadizo/adapter/outbound"
+	"github.com/pasadizo-net/pasadizo/common/metrics"
 	C "github.com/pasadizo-net/pasadizo/constant"
 	"github.com/pasadizo-net/pasadizo/log"
 	"github.com/pasadizo-net/pasadizo/option"
@@ -31,6 +32,7 @@ func NewFallback(ctx context.Context, router adapter.Router, logger log.ContextL
 	outbound := &URLTest{
 		Adapter:                      outbound.NewAdapter(C.TypeFallback, tag, []string{N.NetworkTCP, N.NetworkUDP}, options.Outbounds),
 		ctx:                          ctx,
+		metrics:                      metrics.FromContext(ctx),
 		outbound:                     service.FromContext[adapter.OutboundManager](ctx),
 		logger:                       logger,
 		tags:                         options.Outbounds,

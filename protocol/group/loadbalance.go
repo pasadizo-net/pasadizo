@@ -13,6 +13,7 @@ import (
 	"github.com/pasadizo-net/pasadizo/adapter"
 	"github.com/pasadizo-net/pasadizo/adapter/outbound"
 	"github.com/pasadizo-net/pasadizo/common/interrupt"
+	"github.com/pasadizo-net/pasadizo/common/metrics"
 	C "github.com/pasadizo-net/pasadizo/constant"
 	"github.com/pasadizo-net/pasadizo/log"
 	"github.com/pasadizo-net/pasadizo/option"
@@ -47,6 +48,7 @@ const defaultLoadBalanceFailureWindow = 10 * time.Second
 type LoadBalance struct {
 	outbound.Adapter
 	ctx                          context.Context
+	metrics                      *metrics.Registry
 	outbound                     adapter.OutboundManager
 	logger                       log.ContextLogger
 	tags                         []string
@@ -72,6 +74,7 @@ func NewLoadBalance(ctx context.Context, router adapter.Router, logger log.Conte
 	outbound := &LoadBalance{
 		Adapter:                      outbound.NewAdapter(C.TypeLoadBalance, tag, []string{N.NetworkTCP, N.NetworkUDP}, options.Outbounds),
 		ctx:                          ctx,
+		metrics:                      metrics.FromContext(ctx),
 		outbound:                     service.FromContext[adapter.OutboundManager](ctx),
 		logger:                       logger,
 		tags:                         options.Outbounds,
@@ -226,7 +229,7 @@ func (s *LoadBalance) DialContext(ctx context.Context, network string, destinati
 	if outbound == nil {
 		return nil, E.New("missing supported outbound")
 	}
-	conn, err := outbound.DialContext(ctx, network, destination)
+	conn, err := s.metrics.DialContext(ctx, outbound, network, destination)
 	if err == nil {
 		return s.group.interruptGroup.NewConn(conn, interrupt.IsExternalConnectionFromContext(ctx)), nil
 	}
@@ -241,7 +244,7 @@ func (s *LoadBalance) ListenPacket(ctx context.Context, destination M.Socksaddr)
 	if outbound == nil {
 		return nil, E.New("missing supported outbound")
 	}
-	conn, err := outbound.ListenPacket(ctx, destination)
+	conn, err := s.metrics.ListenPacket(ctx, outbound, destination)
 	if err == nil {
 		return s.group.interruptGroup.NewPacketConn(conn, interrupt.IsExternalConnectionFromContext(ctx)), nil
 	}

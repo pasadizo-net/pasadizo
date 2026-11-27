@@ -127,6 +127,7 @@ nav:
           - Clash API: configuration/experimental/clash-api.md
           - V2Ray API: configuration/experimental/v2ray-api.md
           - Group Webhook: configuration/experimental/group-webhook.md
+          - Metrics: configuration/experimental/metrics.md
       - Shared:
           - Listen Fields: configuration/shared/listen.md
           - Dial Fields: configuration/shared/dial.md

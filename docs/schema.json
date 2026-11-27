@@ -5238,6 +5238,9 @@
         "group_webhook": {
           "$ref": "#/$defs/GroupWebhookOptions"
         },
+        "metrics": {
+          "$ref": "#/$defs/MetricsOptions"
+        },
         "debug": {
           "$ref": "#/$defs/DebugOptions"
         }
@@ -9292,6 +9295,24 @@
         },
         "timestamp": {
           "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "MetricsOptions": {
+      "type": "object",
+      "properties": {
+        "listen": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "username": {
+          "type": "string"
+        },
+        "password": {
+          "type": "string"
         }
       },
       "additionalProperties": false

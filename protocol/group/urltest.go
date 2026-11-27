@@ -14,6 +14,7 @@ import (
 	"github.com/pasadizo-net/pasadizo/adapter"
 	"github.com/pasadizo-net/pasadizo/adapter/outbound"
 	"github.com/pasadizo-net/pasadizo/common/interrupt"
+	"github.com/pasadizo-net/pasadizo/common/metrics"
 	"github.com/pasadizo-net/pasadizo/common/urltest"
 	C "github.com/pasadizo-net/pasadizo/constant"
 	"github.com/pasadizo-net/pasadizo/log"
@@ -41,6 +42,7 @@ var (
 type URLTest struct {
 	outbound.Adapter
 	ctx                          context.Context
+	metrics                      *metrics.Registry
 	outbound                     adapter.OutboundManager
 	logger                       log.ContextLogger
 	tags                         []string
@@ -60,6 +62,7 @@ func NewURLTest(ctx context.Context, router adapter.Router, logger log.ContextLo
 	outbound := &URLTest{
 		Adapter:                      outbound.NewAdapter(C.TypeURLTest, tag, []string{N.NetworkTCP, N.NetworkUDP}, options.Outbounds),
 		ctx:                          ctx,
+		metrics:                      metrics.FromContext(ctx),
 		outbound:                     service.FromContext[adapter.OutboundManager](ctx),
 		logger:                       logger,
 		tags:                         options.Outbounds,
@@ -215,7 +218,7 @@ func (s *URLTest) DialContext(ctx context.Context, network string, destination M
 	if outbound == nil {
 		return nil, E.New("missing supported outbound")
 	}
-	conn, err := outbound.DialContext(ctx, network, destination)
+	conn, err := s.metrics.DialContext(ctx, outbound, network, destination)
 	if err == nil {
 		return s.group.interruptGroup.NewConn(conn, interrupt.IsExternalConnectionFromContext(ctx)), nil
 	}
@@ -236,7 +239,7 @@ func (s *URLTest) ListenPacket(ctx context.Context, destination M.Socksaddr) (ne
 	if outbound == nil {
 		return nil, E.New("missing supported outbound")
 	}
-	conn, err := outbound.ListenPacket(ctx, destination)
+	conn, err := s.metrics.ListenPacket(ctx, outbound, destination)
 	if err == nil {
 		return s.group.interruptGroup.NewPacketConn(conn, interrupt.IsExternalConnectionFromContext(ctx)), nil
 	}
