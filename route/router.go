@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/pasadizo-net/pasadizo/adapter"
+	"github.com/pasadizo-net/pasadizo/common/metrics"
 	"github.com/pasadizo-net/pasadizo/common/process"
 	"github.com/pasadizo-net/pasadizo/common/taskmonitor"
 	C "github.com/pasadizo-net/pasadizo/constant"
@@ -53,6 +54,7 @@ type Router struct {
 	neighborResolver             adapter.NeighborResolver
 	pauseManager                 pause.Manager
 	trackers                     []adapter.ConnectionTracker
+	metrics                      *metrics.Registry
 	platformInterface            adapter.PlatformInterface
 }
 
@@ -66,6 +68,7 @@ func NewRouter(ctx context.Context, logFactory log.Factory, options option.Route
 		dns:               service.FromContext[adapter.DNSRouter](ctx),
 		dnsTransport:      service.FromContext[adapter.DNSTransportManager](ctx),
 		connection:        service.FromContext[adapter.ConnectionManager](ctx),
+		metrics:           metrics.FromContext(ctx),
 		network:           service.FromContext[adapter.NetworkManager](ctx),
 		httpClientManager: service.FromContext[adapter.HTTPClientManager](ctx),
 		rules:             make([]adapter.Rule, 0, len(options.Rules)),

@@ -10,6 +10,7 @@ import (
 	"github.com/pasadizo-net/pasadizo/adapter"
 	"github.com/pasadizo-net/pasadizo/adapter/outbound"
 	"github.com/pasadizo-net/pasadizo/common/interrupt"
+	"github.com/pasadizo-net/pasadizo/common/metrics"
 	"github.com/pasadizo-net/pasadizo/common/urltest"
 	C "github.com/pasadizo-net/pasadizo/constant"
 	"github.com/pasadizo-net/pasadizo/log"
@@ -34,6 +35,7 @@ var (
 type Selector struct {
 	outbound.Adapter
 	ctx                          context.Context
+	metrics                      *metrics.Registry
 	outbound                     adapter.OutboundManager
 	logger                       logger.ContextLogger
 	tags                         []string
@@ -50,6 +52,7 @@ func NewSelector(ctx context.Context, router adapter.Router, logger log.ContextL
 	outbound := &Selector{
 		Adapter:                      outbound.NewAdapter(C.TypeSelector, tag, nil, options.Outbounds),
 		ctx:                          ctx,
+		metrics:                      metrics.FromContext(ctx),
 		outbound:                     service.FromContext[adapter.OutboundManager](ctx),
 		logger:                       logger,
 		tags:                         options.Outbounds,
@@ -174,7 +177,7 @@ func (s *Selector) SelectOutbound(tag string) bool {
 }
 
 func (s *Selector) DialContext(ctx context.Context, network string, destination M.Socksaddr) (net.Conn, error) {
-	conn, err := s.selected.Load().DialContext(ctx, network, destination)
+	conn, err := s.metrics.DialContext(ctx, s.selected.Load(), network, destination)
 	if err != nil {
 		return nil, err
 	}
@@ -182,7 +185,7 @@ func (s *Selector) DialContext(ctx context.Context, network string, destination 
 }
 
 func (s *Selector) ListenPacket(ctx context.Context, destination M.Socksaddr) (net.PacketConn, error) {
-	conn, err := s.selected.Load().ListenPacket(ctx, destination)
+	conn, err := s.metrics.ListenPacket(ctx, s.selected.Load(), destination)
 	if err != nil {
 		return nil, err
 	}

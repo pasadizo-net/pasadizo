@@ -14,6 +14,7 @@ import (
 	"github.com/pasadizo-net/pasadizo/common/certificate"
 	"github.com/pasadizo-net/pasadizo/common/dialer"
 	"github.com/pasadizo-net/pasadizo/common/httpclient"
+	boxMetrics "github.com/pasadizo-net/pasadizo/common/metrics"
 	"github.com/pasadizo-net/pasadizo/common/netns"
 	"github.com/pasadizo-net/pasadizo/common/taskmonitor"
 	"github.com/pasadizo-net/pasadizo/common/tls"
@@ -165,6 +166,9 @@ func New(options Options) (*Box, error) {
 	}
 	if experimentalOptions.Metrics != nil {
 		needMetrics = true
+	}
+	if needClashAPI || needMetrics {
+		service.MustRegisterPtr(ctx, boxMetrics.NewRegistry())
 	}
 	needAPIService := common.Any(options.Services, func(it option.Service) bool {
 		return it.Type == C.TypeAPI
