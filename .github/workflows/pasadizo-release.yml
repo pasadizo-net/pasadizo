@@ -1,6 +1,13 @@
-# Release: on a tag like v1.15.0-alpha.14-pasadizo.1, build static linux
-# binaries (amd64, arm64) with upstream's release tags and linker flags, write
-# their sha256, attest their provenance, and publish a GitHub release.
+# Release: on a tag like v1.15.0-alpha.14-pasadizo.2, run CI, then GoReleaser
+# (.goreleaser.yaml): static binaries for linux amd64, arm64 and armv7 and
+# darwin amd64 and arm64 in tar.gz archives, deb and rpm packages, checksums,
+# a GitHub release, the Homebrew cask in pasadizo-net/homebrew-tap and the AUR
+# package pasadizo-bin. Then attest the provenance of every file in
+# checksums.txt.
+#
+# The Homebrew cask needs the secret HOMEBREW_TAP_TOKEN and the AUR package
+# needs the secret AUR_KEY; without a secret, its step is skipped and the rest
+# of the release still runs.
 name: pasadizo-release
 
 on:
@@ -19,26 +26,41 @@ jobs:
     needs: ci
     runs-on: ubuntu-latest
     env:
-      GH_TOKEN: ${{ github.token }}
+      HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+      AUR_KEY: ${{ secrets.AUR_KEY }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
       - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
-      - name: Build
+      - name: Read upstream's build tags and linker flags
+        id: flags
         run: |
-          version="${GITHUB_REF_NAME#v}"
-          mkdir dist
-          for arch in amd64 arm64; do
-            GOOS=linux GOARCH=$arch CGO_ENABLED=0 go build -trimpath \
-              -tags "$(cat release/DEFAULT_BUILD_TAGS_OTHERS)" \
-              -ldflags "-X github.com/sagernet/sing-box/constant.Version=${version} $(cat release/LDFLAGS) -s -w -buildid=" \
-              -o "dist/pasadizo-${version}-linux-${arch}" ./cmd/sing-box
-          done
-          (cd dist && sha256sum pasadizo-* >SHA256SUMS)
-      - uses: actions/attest-build-provenance@v4
+          {
+            echo "PASADIZO_TAGS=$(cat release/DEFAULT_BUILD_TAGS_OTHERS)"
+            echo "PASADIZO_LDFLAGS=$(cat release/LDFLAGS)"
+          } >>"$GITHUB_ENV"
+          skip=()
+          if [ -z "$HOMEBREW_TAP_TOKEN" ]; then
+            echo "::warning::HOMEBREW_TAP_TOKEN is not set; the Homebrew cask is not published."
+            skip+=(homebrew)
+          fi
+          if [ -z "$AUR_KEY" ]; then
+            echo "::warning::AUR_KEY is not set; the AUR package is not published."
+            skip+=(aur)
+          fi
+          if [ "${#skip[@]}" -gt 0 ]; then
+            echo "skip=--skip=$(IFS=,; echo "${skip[*]}")" >>"$GITHUB_OUTPUT"
+          fi
+      - uses: goreleaser/goreleaser-action@v7
         with:
-          subject-path: dist/pasadizo-*
-      - name: Publish
-        run: |
-          gh release create "$GITHUB_REF_NAME" dist/* --title "$GITHUB_REF_NAME" --notes-file .github/RELEASE_NOTES.md --prerelease
+          distribution: goreleaser
+          version: "~> v2"
+          args: release --clean --release-notes .github/RELEASE_NOTES.md ${{ steps.flags.outputs.skip }}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+      - uses: actions/attest@v4
+        with:
+          subject-checksums: ./dist/checksums.txt

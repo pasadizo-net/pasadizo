@@ -1,0 +1,154 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+# GoReleaser v2 configuration of Pasadizo. .github/workflows/pasadizo-release.yml
+# runs it on a tag like v1.15.0-alpha.14-pasadizo.2. The build tags and the
+# linker flags come from upstream's release/DEFAULT_BUILD_TAGS_OTHERS and
+# release/LDFLAGS through the environment (PASADIZO_TAGS, PASADIZO_LDFLAGS), so
+# they never drift from upstream. Try it locally with:
+#
+#   PASADIZO_TAGS="$(cat release/DEFAULT_BUILD_TAGS_OTHERS)" \
+#   PASADIZO_LDFLAGS="$(cat release/LDFLAGS)" \
+#   goreleaser release --snapshot --clean --skip=publish
+version: 2
+
+project_name: pasadizo
+
+builds:
+  - id: pasadizo
+    main: ./cmd/pasadizo
+    binary: pasadizo
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+      - -tags={{ .Env.PASADIZO_TAGS }}
+    ldflags:
+      - -X github.com/pasadizo-net/pasadizo/constant.Version={{ .Version }}
+      - "{{ .Env.PASADIZO_LDFLAGS }}"
+      - -s -w -buildid=
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+      - arm
+    goarm:
+      - "7"
+    ignore:
+      - goos: darwin
+        goarch: arm
+    mod_timestamp: "{{ .CommitTimestamp }}"
+
+archives:
+  - id: pasadizo
+    ids: [pasadizo]
+    formats: [tar.gz]
+    name_template: "{{ .ProjectName }}-{{ .Version }}-{{ .Os }}-{{ .Arch }}{{ with .Arm }}v{{ . }}{{ end }}"
+    files:
+      - LICENSE
+      - src: .github/README.md
+        dst: README.md
+      - src: .github/pasadizo/packaging/config.json
+        dst: config.json
+      - src: .github/pasadizo/packaging/pasadizo.service
+        dst: systemd/pasadizo.service
+      - src: .github/pasadizo/packaging/pasadizo@.service
+        dst: systemd/pasadizo@.service
+
+checksum:
+  name_template: checksums.txt
+  algorithm: sha256
+
+nfpms:
+  - id: pasadizo
+    ids: [pasadizo]
+    package_name: pasadizo
+    file_name_template: "{{ .ConventionalFileName }}"
+    vendor: pasadizo-net
+    homepage: https://github.com/pasadizo-net/pasadizo
+    description: Proxy platform derived from sing-box, for a home gateway on a lossy, filtered line
+    maintainer: Parham Alvani <parham.alvani@gmail.com>
+    license: GPL-3.0-or-later
+    section: net
+    formats:
+      - deb
+      - rpm
+    bindir: /usr/bin
+    scripts:
+      postinstall: .github/pasadizo/packaging/systemd-reload.sh
+      postremove: .github/pasadizo/packaging/systemd-reload.sh
+    contents:
+      - src: .github/pasadizo/packaging/pasadizo.service
+        dst: /usr/lib/systemd/system/pasadizo.service
+      - src: .github/pasadizo/packaging/pasadizo@.service
+        dst: /usr/lib/systemd/system/pasadizo@.service
+      - src: .github/pasadizo/packaging/config.json
+        dst: /etc/pasadizo/config.json
+        type: config|noreplace
+      - src: LICENSE
+        dst: /usr/share/licenses/pasadizo/LICENSE
+      - src: LICENSE
+        dst: /usr/share/doc/pasadizo/copyright
+        packager: deb
+      - src: .github/README.md
+        dst: /usr/share/doc/pasadizo/README.md
+
+homebrew_casks:
+  - name: pasadizo
+    ids: [pasadizo]
+    binaries: [pasadizo]
+    homepage: https://github.com/pasadizo-net/pasadizo
+    description: Proxy platform derived from sing-box, for a home gateway on a lossy, filtered line
+    license: GPL-3.0-or-later
+    repository:
+      owner: pasadizo-net
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    directory: Casks
+    commit_author:
+      name: Parham Alvani
+      email: parham.alvani@gmail.com
+    commit_msg_template: "pasadizo {{ .Tag }}"
+    # The binaries are not signed or notarized.
+    hooks:
+      post:
+        install_steps: |
+          on_macos do
+            run "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "{{ .StagedPath }}/pasadizo"]
+          end
+
+aurs:
+  - name: pasadizo-bin
+    ids: [pasadizo]
+    homepage: https://github.com/pasadizo-net/pasadizo
+    description: Proxy platform derived from sing-box, for a home gateway on a lossy, filtered line
+    maintainers:
+      - Parham Alvani <parham.alvani at gmail dot com>
+    license: GPL-3.0-or-later
+    private_key: "{{ .Env.AUR_KEY }}"
+    git_url: ssh://aur@aur.archlinux.org/pasadizo-bin.git
+    commit_author:
+      name: Parham Alvani
+      email: parham.alvani@gmail.com
+    commit_msg_template: "pasadizo {{ .Tag }}"
+    provides: [pasadizo]
+    conflicts: [pasadizo]
+    backup:
+      - etc/pasadizo/config.json
+    package: |-
+      install -Dm755 "./pasadizo" "${pkgdir}/usr/bin/pasadizo"
+      install -Dm644 "./systemd/pasadizo.service" "${pkgdir}/usr/lib/systemd/system/pasadizo.service"
+      install -Dm644 "./systemd/pasadizo@.service" "${pkgdir}/usr/lib/systemd/system/pasadizo@.service"
+      install -Dm644 "./config.json" "${pkgdir}/etc/pasadizo/config.json"
+      install -Dm644 "./LICENSE" "${pkgdir}/usr/share/licenses/pasadizo-bin/LICENSE"
+      install -Dm644 "./README.md" "${pkgdir}/usr/share/doc/pasadizo/README.md"
+
+release:
+  github:
+    owner: pasadizo-net
+    name: pasadizo
+  prerelease: auto
+  name_template: "{{ .Tag }}"
+
+changelog:
+  disable: true
