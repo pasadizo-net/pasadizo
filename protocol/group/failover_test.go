@@ -317,3 +317,33 @@ func TestGroupTimeoutOptions(t *testing.T) {
 	_, err = NewLoadBalance(ctx, nil, nil, "balance", option.LoadBalanceOutboundOptions{Outbounds: []string{"a"}, FailureWindow: badoption.Duration(time.Second)})
 	require.Error(t, err)
 }
+
+type countingOutbound struct {
+	outbound.Adapter
+	dials int
+}
+
+func (o *countingOutbound) DialContext(ctx context.Context, network string, destination M.Socksaddr) (net.Conn, error) {
+	o.dials++
+	return nil, errTestDial
+}
+
+func (o *countingOutbound) ListenPacket(ctx context.Context, destination M.Socksaddr) (net.PacketConn, error) {
+	return nil, errTestDial
+}
+
+func TestURLTestRoundAfterOneInterval(t *testing.T) {
+	t.Parallel()
+	history := urltest.NewHistoryStorage()
+	counting := &countingOutbound{Adapter: outbound.NewAdapter(C.TypeDirect, "counting", []string{N.NetworkTCP}, nil)}
+	run := func(age time.Duration) {
+		history.StoreURLTestHistory("counting", &adapter.URLTestHistory{Time: time.Now().Add(-age), Delay: 100})
+		urlTestOutbounds(context.Background(), nil, history, logger.NOP(), []adapter.Outbound{counting}, "", 10*time.Second, time.Second, false)
+	}
+	// the result of the round before, stored when its test ended
+	run(9 * time.Second)
+	require.Equal(t, 1, counting.dials, "a round one interval after the last one must test again")
+	// the result of another group's round a moment ago
+	run(time.Second)
+	require.Equal(t, 1, counting.dials, "a fresh result must be kept")
+}

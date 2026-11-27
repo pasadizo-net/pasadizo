@@ -569,8 +569,13 @@ func (b *urlTestBatch) test(outbounds []adapter.Outbound, link string, interval 
 				return member
 			})), link, interval, force)
 		default:
+			// A result younger than half the interval is kept, so that
+			// groups that share an outbound do not test it twice. The whole
+			// interval would skip every other round: the result of the last
+			// round is stored when its test ends, which is a little less
+			// than one interval before the next round starts.
 			history := b.history.LoadURLTestHistory(tag)
-			if !force && history != nil && time.Since(history.Time) < interval {
+			if !force && history != nil && time.Since(history.Time) < interval/2 {
 				continue
 			}
 			b.checked[tag] = true
