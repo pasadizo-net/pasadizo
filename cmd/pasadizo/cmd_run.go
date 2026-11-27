@@ -201,6 +201,12 @@ func run() error {
 					log.Error(E.Cause(err, "reload service"))
 					continue
 				}
+				// A change of nothing but route and DNS rules is applied to
+				// the running instance, which keeps its connections.
+				if nextOptions, reloaded := reloadRules(instance, options); reloaded {
+					options = nextOptions
+					continue
+				}
 			}
 			cancel()
 			closeCtx, closed := context.WithCancel(context.Background())
@@ -230,4 +236,29 @@ func closeMonitor(ctx context.Context) {
 	default:
 	}
 	log.Fatal("sing-box did not close!")
+}
+
+// reloadRules applies a new configuration to the running instance when it
+// differs from the current one in route and DNS rules only. It reports false
+// when the instance has to be restarted to apply it.
+func reloadRules(instance *box.Box, current option.Options) (option.Options, bool) {
+	next, err := readConfigAndMerge()
+	if err != nil {
+		return current, false
+	}
+	rulesOnly, changed, err := box.RulesOnlyChange(globalCtx, current, next)
+	if err != nil || !rulesOnly {
+		return current, false
+	}
+	if !changed {
+		log.Info("reload: the configuration did not change")
+		return next, true
+	}
+	err = instance.ReloadRules(current, next)
+	if err != nil {
+		log.Info(E.Cause(err, "reload: restart instead of replacing the rules"))
+		return current, false
+	}
+	log.Info("reload: replaced the route and DNS rules, connections are kept")
+	return next, true
 }
