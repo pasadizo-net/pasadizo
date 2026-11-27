@@ -1,19 +1,45 @@
-package clashapi
+// Package metrics writes the Prometheus metrics that the Clash API and the
+// standalone metrics listener serve.
+package metrics
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"net/http"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
 
 	"github.com/pasadizo-net/pasadizo/adapter"
+	"github.com/pasadizo-net/pasadizo/common/trafficcontrol"
+	"github.com/pasadizo-net/pasadizo/common/urltest"
 	N "github.com/sagernet/sing/common/network"
+	"github.com/sagernet/sing/service"
 )
 
-// Prometheus text exposition format, version 0.0.4.
-const metricsContentType = "text/plain; version=0.0.4; charset=utf-8"
+// ContentType is the Prometheus text exposition format, version 0.0.4.
+const ContentType = "text/plain; version=0.0.4; charset=utf-8"
+
+// Collector gathers the metrics of a box.
+type Collector struct {
+	trafficManager *trafficcontrol.Manager
+	urlTestHistory *urltest.HistoryStorage
+	outbound       adapter.OutboundManager
+	endpoint       adapter.EndpointManager
+}
+
+// NewCollector reads the services it needs from the box context. The traffic
+// manager must be registered.
+func NewCollector(ctx context.Context) *Collector {
+	return &Collector{
+		trafficManager: service.PtrFromContext[trafficcontrol.Manager](ctx),
+		urlTestHistory: service.PtrFromContext[urltest.HistoryStorage](ctx),
+		outbound:       service.FromContext[adapter.OutboundManager](ctx),
+		endpoint:       service.FromContext[adapter.EndpointManager](ctx),
+	}
+}
 
 type metricsSnapshot struct {
 	Connections int
@@ -38,27 +64,39 @@ type groupMetrics struct {
 	All      []string
 }
 
-func metrics(server *Server) func(w http.ResponseWriter, r *http.Request) {
-	return func(w http.ResponseWriter, r *http.Request) {
-		var buffer bytes.Buffer
-		writeMetrics(&buffer, server.metricsSnapshot())
-		w.Header().Set("Content-Type", metricsContentType)
-		w.WriteHeader(http.StatusOK)
+// ServeHTTP writes the metrics in the Prometheus text format.
+func (c *Collector) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	var buffer bytes.Buffer
+	c.Write(&buffer)
+	w.Header().Set("Content-Type", ContentType)
+	w.WriteHeader(http.StatusOK)
+	if r.Method != http.MethodHead {
 		_, _ = w.Write(buffer.Bytes())
 	}
 }
 
-func (s *Server) metricsSnapshot() *metricsSnapshot {
-	upload, download := s.trafficManager.Total()
+// Write writes the metrics in the Prometheus text format.
+func (c *Collector) Write(writer io.Writer) {
+	writeMetrics(writer, c.snapshot())
+}
+
+func inuseMemory() uint64 {
+	var memStats runtime.MemStats
+	runtime.ReadMemStats(&memStats)
+	return memStats.StackInuse + memStats.HeapInuse + memStats.HeapIdle - memStats.HeapReleased
+}
+
+func (c *Collector) snapshot() *metricsSnapshot {
+	upload, download := c.trafficManager.Total()
 	snapshot := &metricsSnapshot{
-		Connections: s.trafficManager.ConnectionsLen(),
+		Connections: c.trafficManager.ConnectionsLen(),
 		Upload:      upload,
 		Download:    download,
 		Memory:      inuseMemory(),
 	}
-	outboundTotal := s.trafficManager.OutboundTotal()
-	managedOutbounds := s.outbound.Outbounds()
-	endpoints := s.endpoint.Endpoints()
+	outboundTotal := c.trafficManager.OutboundTotal()
+	managedOutbounds := c.outbound.Outbounds()
+	endpoints := c.endpoint.Endpoints()
 	outbounds := make([]adapter.Outbound, 0, len(managedOutbounds)+len(endpoints))
 	outbounds = append(outbounds, managedOutbounds...)
 	for _, endpoint := range endpoints {
@@ -87,7 +125,7 @@ func (s *Server) metricsSnapshot() *metricsSnapshot {
 			Upload:      statistics.Upload,
 			Download:    statistics.Download,
 			Connections: statistics.Connections,
-			Delay:       s.urlTestHistory.LoadURLTestHistory(tag),
+			Delay:       c.urlTestHistory.LoadURLTestHistory(tag),
 		})
 	}
 	// Traffic of outbounds that are gone or have no tag.

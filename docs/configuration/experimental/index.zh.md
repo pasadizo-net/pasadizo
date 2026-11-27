@@ -2,7 +2,8 @@
 
 !!! quote "sing-box 1.15.0 中的更改"
 
-    :material-plus: [group_webhook](./group-webhook/)
+    :material-plus: [group_webhook](./group-webhook/)  
+    :material-plus: [metrics](./metrics/)
 
 !!! quote "sing-box 1.8.0 中的更改"
 
@@ -17,7 +18,8 @@
     "cache_file": {},
     "clash_api": {},
     "v2ray_api": {},
-    "group_webhook": {}
+    "group_webhook": {},
+    "metrics": {}
   }
 }
 ```
@@ -30,3 +32,4 @@
 | `clash_api`     | [Clash API](./clash-api/)     |
 | `v2ray_api`     | [V2Ray API](./v2ray-api/)     |
 | `group_webhook` | [组 Webhook](./group-webhook/) |
+| `metrics`       | [Metrics](./metrics/)       |

@@ -1,4 +1,4 @@
-package clashapi
+package metrics
 
 import (
 	"bytes"

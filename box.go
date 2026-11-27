@@ -26,6 +26,7 @@ import (
 	"github.com/pasadizo-net/pasadizo/experimental/clashmode"
 	"github.com/pasadizo-net/pasadizo/experimental/deprecated"
 	"github.com/pasadizo-net/pasadizo/experimental/groupwebhook"
+	"github.com/pasadizo-net/pasadizo/experimental/metrics"
 	"github.com/pasadizo-net/pasadizo/log"
 	"github.com/pasadizo-net/pasadizo/option"
 	"github.com/pasadizo-net/pasadizo/protocol/direct"
@@ -152,6 +153,7 @@ func New(options Options) (*Box, error) {
 	var needCacheFile bool
 	var needClashAPI bool
 	var needV2RayAPI bool
+	var needMetrics bool
 	if experimentalOptions.CacheFile != nil && experimentalOptions.CacheFile.Enabled || options.PlatformLogWriter != nil {
 		needCacheFile = true
 	}
@@ -160,6 +162,9 @@ func New(options Options) (*Box, error) {
 	}
 	if experimentalOptions.V2RayAPI != nil && experimentalOptions.V2RayAPI.Listen != "" {
 		needV2RayAPI = true
+	}
+	if experimentalOptions.Metrics != nil {
+		needMetrics = true
 	}
 	needAPIService := common.Any(options.Services, func(it option.Service) bool {
 		return it.Type == C.TypeAPI
@@ -241,7 +246,7 @@ func New(options Options) (*Box, error) {
 	if err != nil {
 		return nil, E.Cause(err, "initialize router")
 	}
-	if needClashAPI || needAPIService || options.PlatformLogWriter != nil {
+	if needClashAPI || needMetrics || needAPIService || options.PlatformLogWriter != nil {
 		trafficManager := trafficcontrol.NewManager()
 		service.MustRegisterPtr(ctx, trafficManager)
 		router.AppendTracker(trafficManager)
@@ -418,6 +423,13 @@ func New(options Options) (*Box, error) {
 			return nil, E.Cause(err, "create clash-server")
 		}
 		internalServices = append(internalServices, clashServer)
+	}
+	if needMetrics {
+		metricsServer, err := metrics.NewServer(ctx, logFactory.NewLogger("metrics"), *experimentalOptions.Metrics)
+		if err != nil {
+			return nil, E.Cause(err, "create metrics server")
+		}
+		internalServices = append(internalServices, metricsServer)
 	}
 	if needV2RayAPI {
 		v2rayServer, err := experimental.NewV2RayServer(logFactory.NewLogger("v2ray-api"), common.PtrValueOrDefault(experimentalOptions.V2RayAPI))

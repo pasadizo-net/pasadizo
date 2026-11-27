@@ -28,6 +28,7 @@ Pasadizo ("secret passage" in Spanish) is a proxy platform derived from [sing-bo
 | Fair bandwidth sharing between client addresses | route action option `fair_share` | [docs/configuration/route/rule_action.md](../docs/configuration/route/rule_action.md) |
 | Traffic per client address in the Clash API | `GET /stats/sources` | [docs/configuration/experimental/clash-api.md](../docs/configuration/experimental/clash-api.md) |
 | Prometheus metrics in the Clash API | `GET /metrics` | [docs/configuration/experimental/clash-api.md](../docs/configuration/experimental/clash-api.md) |
+| A standalone, read-only Prometheus metrics listener, with optional basic authentication, that does not expose the Clash API | `experimental.metrics` | [docs/configuration/experimental/metrics.md](../docs/configuration/experimental/metrics.md) |
 | Cloudflare WARP mode for the MASQUE client (incomplete: the QUIC library still refuses the extended CONNECT) | `masque-client` endpoint | [docs/configuration/endpoint/masque-client.md](../docs/configuration/endpoint/masque-client.md) |
 
 Each feature is one commit on top of upstream, so it can be read, reverted or offered upstream on its own.

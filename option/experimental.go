@@ -10,7 +10,15 @@ type ExperimentalOptions struct {
 	ClashAPI     *ClashAPIOptions     `json:"clash_api,omitempty"`
 	V2RayAPI     *V2RayAPIOptions     `json:"v2ray_api,omitempty"`
 	GroupWebhook *GroupWebhookOptions `json:"group_webhook,omitempty"`
+	Metrics      *MetricsOptions      `json:"metrics,omitempty"`
 	Debug        *DebugOptions        `json:"debug,omitempty"`
+}
+
+type MetricsOptions struct {
+	Listen   string `json:"listen"`
+	Path     string `json:"path,omitempty"`
+	Username string `json:"username,omitempty"`
+	Password string `json:"password,omitempty"`
 }
 
 type CacheFileOptions struct {
