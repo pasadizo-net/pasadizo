@@ -3,7 +3,7 @@
 package oomkiller
 
 import (
-	"github.com/sagernet/sing-box/adapter"
+	"github.com/pasadizo-net/pasadizo/adapter"
 )
 
 func (s *Service) Start(stage adapter.StartStage, scope *adapter.Scope) error {

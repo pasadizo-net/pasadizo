@@ -9,7 +9,7 @@ import (
 	"strings"
 	"sync"
 
-	transportHTTP "github.com/sagernet/sing-box/transport/http"
+	transportHTTP "github.com/pasadizo-net/pasadizo/transport/http"
 	"github.com/sagernet/sing-tun"
 	"github.com/sagernet/sing/common"
 	"github.com/sagernet/sing/common/auth"

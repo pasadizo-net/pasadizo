@@ -6,7 +6,7 @@ import (
 	"os"
 	"sync"
 
-	"github.com/sagernet/sing-box/daemon"
+	"github.com/pasadizo-net/pasadizo/daemon"
 )
 
 type TailscaleSSHOptions struct {

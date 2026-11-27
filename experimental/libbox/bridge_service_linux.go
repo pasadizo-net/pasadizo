@@ -5,7 +5,7 @@ package libbox
 import (
 	"net/netip"
 
-	"github.com/sagernet/sing-box/protocol/bridge"
+	"github.com/pasadizo-net/pasadizo/protocol/bridge"
 	E "github.com/sagernet/sing/common/exceptions"
 )
 

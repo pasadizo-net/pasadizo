@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sagernet/sing-box/adapter"
+	"github.com/pasadizo-net/pasadizo/adapter"
 
 	"github.com/godbus/dbus/v5"
 )

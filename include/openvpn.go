@@ -3,9 +3,9 @@
 package include
 
 import (
-	"github.com/sagernet/sing-box/adapter/endpoint"
-	"github.com/sagernet/sing-box/dns"
-	"github.com/sagernet/sing-box/protocol/openvpn"
+	"github.com/pasadizo-net/pasadizo/adapter/endpoint"
+	"github.com/pasadizo-net/pasadizo/dns"
+	"github.com/pasadizo-net/pasadizo/protocol/openvpn"
 )
 
 func registerOpenVPNEndpoints(registry *endpoint.Registry) {

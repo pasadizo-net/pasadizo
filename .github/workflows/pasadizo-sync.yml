@@ -2,6 +2,14 @@
 # build and test it, and open a pull request against main. Nothing reaches main
 # without a person reading the upstream changes and merging the pull request.
 # On a merge conflict it opens an issue instead.
+#
+# Pasadizo renames the Go module and the program (.github/pasadizo/rename.sh),
+# so upstream is not merged as it is: a plain merge conflicts wherever
+# upstream changes a line next to a renamed one. .github/pasadizo/sync-merge.sh
+# runs the same rename.sh on upstream's head in a temporary branch, commits it
+# as "Rename upstream <sha> to Pasadizo", and merges that commit, with the
+# renamed last-merged upstream commit as the merge base. All three sides then
+# carry the identical rename, and only upstream's real changes are merged.
 name: pasadizo-sync
 
 on:
@@ -40,7 +48,7 @@ jobs:
             echo "Upstream $head is already in main."
             echo "skip=true" >>"$GITHUB_OUTPUT"
           fi
-      - name: Merge
+      - name: Merge the renamed upstream
         id: merge
         if: steps.fetch.outputs.skip != 'true'
         run: |
@@ -49,9 +57,7 @@ jobs:
           branch="sync/upstream-${{ steps.fetch.outputs.short }}"
           echo "branch=$branch" >>"$GITHUB_OUTPUT"
           git switch -c "$branch"
-          if ! git merge --no-edit -m "Merge upstream ${UPSTREAM_BRANCH} ${{ steps.fetch.outputs.short }}" "upstream/$UPSTREAM_BRANCH"; then
-            git diff --name-only --diff-filter=U >conflicts.txt
-            git merge --abort
+          if ! .github/pasadizo/sync-merge.sh "upstream/$UPSTREAM_BRANCH" conflicts.txt; then
             echo "conflict=true" >>"$GITHUB_OUTPUT"
           fi
       - name: Report a conflict
@@ -74,11 +80,12 @@ jobs:
           tags="$(cat release/DEFAULT_BUILD_TAGS_OTHERS)"
           for arch in amd64 arm64; do
             GOOS=linux GOARCH=$arch CGO_ENABLED=0 go build -trimpath -tags "$tags" \
-              -ldflags "$(cat release/LDFLAGS) -s -w -buildid=" -o /dev/null ./cmd/sing-box
+              -ldflags "$(cat release/LDFLAGS) -s -w -buildid=" -o /dev/null ./cmd/pasadizo
           done
-          pkgs=(./adapter/... ./common/fairshare/... ./common/trafficcontrol/... ./option/...
-            ./protocol/group/... ./protocol/hysteria2/... ./route/... ./experimental/clashapi/...
-            ./experimental/groupwebhook/... ./transport/masque/...)
+          pkgs=(./adapter/... ./common/fairshare/... ./common/trafficcontrol/... ./constant/...
+            ./experimental/clashapi/... ./experimental/groupwebhook/... ./include/... ./option/...
+            ./protocol/group/... ./protocol/hysteria2/... ./protocol/masque/... ./route/...
+            ./transport/http/... ./transport/masque/...)
           go test -race -count=1 -tags "$tags" -ldflags "$(cat release/LDFLAGS)" "${pkgs[@]}" 2>&1 | tee test.log
       - name: Open the pull request
         if: steps.fetch.outputs.skip != 'true' && steps.merge.outputs.conflict != 'true'

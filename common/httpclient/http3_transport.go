@@ -11,10 +11,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pasadizo-net/pasadizo/common/tls"
+	"github.com/pasadizo-net/pasadizo/option"
 	"github.com/sagernet/quic-go"
 	"github.com/sagernet/quic-go/http3"
-	"github.com/sagernet/sing-box/common/tls"
-	"github.com/sagernet/sing-box/option"
 	qtls "github.com/sagernet/sing-quic"
 	E "github.com/sagernet/sing/common/exceptions"
 	M "github.com/sagernet/sing/common/metadata"

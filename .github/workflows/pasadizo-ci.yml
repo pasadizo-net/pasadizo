@@ -21,13 +21,17 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
+      - name: The tree is renamed to Pasadizo
+        run: |
+          .github/pasadizo/rename.sh
+          git diff --exit-code
       - name: Build (linux amd64 and arm64, release tags)
         run: |
           for arch in amd64 arm64; do
             GOOS=linux GOARCH=$arch CGO_ENABLED=0 go build -trimpath \
               -tags "$(cat release/DEFAULT_BUILD_TAGS_OTHERS)" \
               -ldflags "$(cat release/LDFLAGS) -s -w -buildid=" \
-              -o /dev/null ./cmd/sing-box
+              -o /dev/null ./cmd/pasadizo
           done
       - name: Vet and test the packages Pasadizo changes
         run: |
@@ -39,3 +43,8 @@ jobs:
           go vet -tags "$tags" "${pkgs[@]}"
           # transport/masque needs -checklinkname=0 from release/LDFLAGS to link
           go test -race -count=1 -tags "$tags" -ldflags "$(cat release/LDFLAGS)" "${pkgs[@]}"
+      - uses: goreleaser/goreleaser-action@v7
+        with:
+          distribution: goreleaser
+          version: "~> v2"
+          args: check

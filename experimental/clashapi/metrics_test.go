@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sagernet/sing-box/adapter"
+	"github.com/pasadizo-net/pasadizo/adapter"
 
 	"github.com/stretchr/testify/require"
 )

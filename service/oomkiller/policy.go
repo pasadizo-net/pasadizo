@@ -3,9 +3,9 @@ package oomkiller
 import (
 	"context"
 
-	"github.com/sagernet/sing-box/adapter"
-	C "github.com/sagernet/sing-box/constant"
-	"github.com/sagernet/sing-box/option"
+	"github.com/pasadizo-net/pasadizo/adapter"
+	C "github.com/pasadizo-net/pasadizo/constant"
+	"github.com/pasadizo-net/pasadizo/option"
 	"github.com/sagernet/sing/common/memory"
 	"github.com/sagernet/sing/service"
 )

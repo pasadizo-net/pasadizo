@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pasadizo-net/pasadizo/adapter"
 	"github.com/sagernet/fswatch"
-	"github.com/sagernet/sing-box/adapter"
 	"github.com/sagernet/sing/common/buf"
 	E "github.com/sagernet/sing/common/exceptions"
 	"github.com/sagernet/sing/common/logger"

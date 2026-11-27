@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/sagernet/sing-box/log"
+	"github.com/pasadizo-net/pasadizo/log"
 	E "github.com/sagernet/sing/common/exceptions"
 )
 

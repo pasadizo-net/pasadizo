@@ -3,9 +3,9 @@
 package usbip
 
 import (
-	boxService "github.com/sagernet/sing-box/adapter/service"
-	C "github.com/sagernet/sing-box/constant"
-	"github.com/sagernet/sing-box/option"
+	boxService "github.com/pasadizo-net/pasadizo/adapter/service"
+	C "github.com/pasadizo-net/pasadizo/constant"
+	"github.com/pasadizo-net/pasadizo/option"
 	"github.com/sagernet/sing-usbip"
 )
 

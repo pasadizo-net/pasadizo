@@ -4,8 +4,8 @@ import (
 	"context"
 	"os"
 
-	"github.com/sagernet/sing-box/adapter"
-	C "github.com/sagernet/sing-box/constant"
+	"github.com/pasadizo-net/pasadizo/adapter"
+	C "github.com/pasadizo-net/pasadizo/constant"
 )
 
 func DTLSRecord(ctx context.Context, metadata *adapter.InboundContext, packet []byte) error {

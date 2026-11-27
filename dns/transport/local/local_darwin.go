@@ -13,9 +13,9 @@ import (
 	"slices"
 	"sync"
 
-	"github.com/sagernet/sing-box/dns"
-	dnsTransport "github.com/sagernet/sing-box/dns/transport"
-	"github.com/sagernet/sing-box/dns/transport/mdns"
+	"github.com/pasadizo-net/pasadizo/dns"
+	dnsTransport "github.com/pasadizo-net/pasadizo/dns/transport"
+	"github.com/pasadizo-net/pasadizo/dns/transport/mdns"
 	E "github.com/sagernet/sing/common/exceptions"
 
 	mDNS "github.com/miekg/dns"

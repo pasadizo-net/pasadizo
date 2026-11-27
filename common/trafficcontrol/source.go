@@ -5,7 +5,7 @@ import (
 	"net/netip"
 	"slices"
 
-	C "github.com/sagernet/sing-box/constant"
+	C "github.com/pasadizo-net/pasadizo/constant"
 
 	"github.com/gofrs/uuid/v5"
 )

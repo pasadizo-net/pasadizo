@@ -3,7 +3,7 @@ package clashapi
 import (
 	"net/http"
 
-	"github.com/sagernet/sing-box/common/trafficcontrol"
+	"github.com/pasadizo-net/pasadizo/common/trafficcontrol"
 	"github.com/sagernet/sing/common"
 	"github.com/sagernet/sing/common/json"
 

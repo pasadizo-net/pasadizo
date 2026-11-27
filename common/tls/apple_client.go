@@ -5,9 +5,9 @@ package tls
 import (
 	"context"
 
-	"github.com/sagernet/sing-box/adapter"
-	"github.com/sagernet/sing-box/common/certificate"
-	"github.com/sagernet/sing-box/option"
+	"github.com/pasadizo-net/pasadizo/adapter"
+	"github.com/pasadizo-net/pasadizo/common/certificate"
+	"github.com/pasadizo-net/pasadizo/option"
 	"github.com/sagernet/sing/common/logger"
 )
 

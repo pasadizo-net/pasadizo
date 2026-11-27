@@ -7,9 +7,9 @@ import (
 	"io"
 	"os"
 
-	"github.com/sagernet/sing-box/daemon"
-	"github.com/sagernet/sing-box/include"
-	"github.com/sagernet/sing-box/log"
+	"github.com/pasadizo-net/pasadizo/daemon"
+	"github.com/pasadizo-net/pasadizo/include"
+	"github.com/pasadizo-net/pasadizo/log"
 	E "github.com/sagernet/sing/common/exceptions"
 
 	"github.com/spf13/cobra"

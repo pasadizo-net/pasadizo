@@ -5,7 +5,7 @@ import (
 	"net/netip"
 	"sync/atomic"
 
-	"github.com/sagernet/sing-box/log"
+	"github.com/pasadizo-net/pasadizo/log"
 	"github.com/sagernet/sing-tun"
 	"github.com/sagernet/sing-tun/gtcpip/header"
 	"github.com/sagernet/sing/common/byteformats"

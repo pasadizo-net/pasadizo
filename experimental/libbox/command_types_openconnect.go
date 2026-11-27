@@ -3,7 +3,7 @@ package libbox
 import (
 	"strings"
 
-	"github.com/sagernet/sing-box/daemon"
+	"github.com/pasadizo-net/pasadizo/daemon"
 	"github.com/sagernet/sing/common"
 )
 

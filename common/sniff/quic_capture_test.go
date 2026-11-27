@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pasadizo-net/pasadizo/adapter"
+	"github.com/pasadizo-net/pasadizo/common/sniff"
 	"github.com/sagernet/quic-go"
-	"github.com/sagernet/sing-box/adapter"
-	"github.com/sagernet/sing-box/common/sniff"
 
 	"github.com/stretchr/testify/require"
 )

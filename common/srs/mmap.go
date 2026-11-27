@@ -9,8 +9,8 @@ import (
 	"runtime"
 	"unsafe"
 
-	"github.com/sagernet/sing-box/common/ipset"
-	"github.com/sagernet/sing-box/option"
+	"github.com/pasadizo-net/pasadizo/common/ipset"
+	"github.com/pasadizo-net/pasadizo/option"
 	"github.com/sagernet/sing/common/domain"
 	E "github.com/sagernet/sing/common/exceptions"
 	"github.com/sagernet/sing/common/varbin"

@@ -3,7 +3,7 @@
 package tailssh
 
 import (
-	"github.com/sagernet/sing-box/adapter"
+	"github.com/pasadizo-net/pasadizo/adapter"
 )
 
 func (s *Server) lookupUser(username string) (*adapter.PlatformUser, error) {

@@ -1,0 +1,15 @@
+[Unit]
+Description=Pasadizo service (%i)
+Documentation=https://github.com/pasadizo-net/pasadizo
+After=network.target nss-lookup.target network-online.target
+
+[Service]
+StateDirectory=pasadizo-%i
+ExecStart=/usr/bin/pasadizo -D /var/lib/pasadizo-%i -c /etc/pasadizo/%i.json run
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=on-failure
+RestartSec=10s
+LimitNOFILE=infinity
+
+[Install]
+WantedBy=multi-user.target
