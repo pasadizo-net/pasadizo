@@ -42,6 +42,7 @@
 | `loadbalance`  | [LoadBalance](./loadbalance/)   |
 | `fallback`     | [Fallback](./fallback/)         |
 | `naive`        | [NaiveProxy](./naive/)          |
+| `gost`         | [gost](./gost/)                 |
 
 #### tag
 

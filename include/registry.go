@@ -23,6 +23,7 @@ import (
 	"github.com/pasadizo-net/pasadizo/protocol/block"
 	"github.com/pasadizo-net/pasadizo/protocol/bridge"
 	"github.com/pasadizo-net/pasadizo/protocol/direct"
+	"github.com/pasadizo-net/pasadizo/protocol/gost"
 	"github.com/pasadizo-net/pasadizo/protocol/group"
 	"github.com/pasadizo-net/pasadizo/protocol/http"
 	"github.com/pasadizo-net/pasadizo/protocol/masque"
@@ -94,6 +95,7 @@ func OutboundRegistry() *outbound.Registry {
 
 	socks.RegisterOutbound(registry)
 	http.RegisterOutbound(registry)
+	gost.RegisterOutbound(registry)
 	shadowsocks.RegisterOutbound(registry)
 	snell.RegisterOutbound(registry)
 	vmess.RegisterOutbound(registry)

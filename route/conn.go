@@ -342,7 +342,9 @@ func (m *ConnectionManager) observeDial(this N.Dialer, start time.Time, err erro
 }
 
 func (m *ConnectionManager) reportConnectionFailure(metadata adapter.InboundContext, network string, err error) {
-	if E.IsClosedOrCanceled(err) {
+	// A destination error means the member reached its server: it says
+	// nothing about the member's health.
+	if E.IsClosedOrCanceled(err) || adapter.IsDestinationError(err) {
 		return
 	}
 	chain := metadata.OutboundChain

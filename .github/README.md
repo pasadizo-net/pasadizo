@@ -23,6 +23,8 @@ Pasadizo ("secret passage" in Spanish) is a proxy platform derived from [sing-bo
 | --- | --- | --- |
 | `loadbalance` outbound group: spreads connections over its members by consistent hashing of the destination or round-robin, with URL-test health checks | `"type": "loadbalance"` | [docs/configuration/outbound/loadbalance.md](../docs/configuration/outbound/loadbalance.md) |
 | `fallback` outbound group: the first healthy member in a fixed order, with `recover_after` before it moves back up | `"type": "fallback"` | [docs/configuration/outbound/fallback.md](../docs/configuration/outbound/fallback.md) |
+| `gost` outbound: a node of a gost v3 chain, an `http` handler on an `mtls` or `mtcp` listener (smux, HTTP `CONNECT`), chained with `detour` | `"type": "gost"` | [docs/configuration/outbound/gost.md](../docs/configuration/outbound/gost.md) |
+| Outbound groups do not fail over when the proxy server answered but could not reach the destination | `adapter.DestinationError` | [docs/configuration/outbound/gost.md](../docs/configuration/outbound/gost.md) |
 | Several QUIC connections per Hysteria2 outbound, so one exit is not limited by one connection | `"connections": 4` on a `hysteria2` outbound | [docs/configuration/outbound/hysteria2.md](../docs/configuration/outbound/hysteria2.md) |
 | A webhook for outbound group changes (selected member, member health) | `experimental.group_webhook` | [docs/configuration/experimental/group-webhook.md](../docs/configuration/experimental/group-webhook.md) |
 | Fair bandwidth sharing between client addresses | route action option `fair_share` | [docs/configuration/route/rule_action.md](../docs/configuration/route/rule_action.md) |

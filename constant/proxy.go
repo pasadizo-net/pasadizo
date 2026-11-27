@@ -46,6 +46,7 @@ const (
 	TypeHysteriaRealm      = "hysteria-realm"
 	TypeACME               = "acme"
 	TypeCloudflareOriginCA = "cloudflare-origin-ca"
+	TypeGost               = "gost"
 )
 
 const (
@@ -110,6 +111,8 @@ func ProxyDisplayName(proxyType string) string {
 		return "TUIC"
 	case TypeHysteria2:
 		return "Hysteria2"
+	case TypeGost:
+		return "gost"
 	case TypeAnyTLS:
 		return "AnyTLS"
 	case TypeOpenConnect:
