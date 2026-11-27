@@ -82,7 +82,11 @@ func (d *DetourDialer) DialContext(ctx context.Context, network string, destinat
 	if err != nil {
 		return nil, err
 	}
-	return dialer.DialContext(ctx, network, destination)
+	conn, err := dialer.DialContext(ctx, network, destination)
+	if err != nil {
+		return nil, adapter.AsServerError(err)
+	}
+	return conn, nil
 }
 
 func (d *DetourDialer) ListenPacket(ctx context.Context, destination M.Socksaddr) (net.PacketConn, error) {
