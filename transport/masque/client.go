@@ -38,7 +38,9 @@ type ClientOptions struct {
 	Logger          logger.ContextLogger
 	HTTPClient      *transportHTTP.Client
 	Path            string
+	Address         []netip.Prefix
 	AdvertiseRoutes []netip.Prefix
+	WARP            bool
 	Handler         ClientHandler
 }
 
@@ -48,6 +50,8 @@ type Client struct {
 	logger          logger.ContextLogger
 	httpClient      *transportHTTP.Client
 	template        *Template
+	protocol        string
+	address         []netip.Prefix
 	advertiseRoutes []AddressRange
 	handler         ClientHandler
 	access          sync.Mutex
@@ -76,6 +80,10 @@ func NewClient(options ClientOptions) (*Client, error) {
 	if err != nil {
 		return nil, E.Cause(err, "build advertised routes")
 	}
+	protocol := upgradeToken
+	if options.WARP {
+		protocol = warpUpgradeToken
+	}
 	ctx, cancel := context.WithCancel(options.Context)
 	return &Client{
 		ctx:             ctx,
@@ -83,6 +91,8 @@ func NewClient(options ClientOptions) (*Client, error) {
 		logger:          options.Logger,
 		httpClient:      options.HTTPClient,
 		template:        template,
+		protocol:        protocol,
+		address:         options.Address,
 		advertiseRoutes: advertiseRoutes,
 		handler:         options.Handler,
 		stateUpdated:    make(chan struct{}),
@@ -164,7 +174,7 @@ func (c *Client) loop() {
 
 func (c *Client) connect() (bool, error) {
 	dialCtx, cancelDial := context.WithTimeout(c.ctx, C.TCPTimeout)
-	stream, err := c.httpClient.OpenTunnel(dialCtx, upgradeToken, c.template.Expand())
+	stream, err := c.httpClient.OpenTunnel(dialCtx, c.protocol, c.template.Expand())
 	cancelDial()
 	if err != nil {
 		return false, err
@@ -179,10 +189,18 @@ func (c *Client) connect() (bool, error) {
 	current.session = newSession(c.ctx, stream, current, c.handler.FrontHeadroom)
 	c.current = current
 	c.access.Unlock()
-	err = current.writeCapsule(newAddressCapsule(capsuleTypeAddressRequest, []AssignedAddress{
-		{RequestID: 1, Prefix: netip.PrefixFrom(netip.IPv4Unspecified(), 32)},
-		{RequestID: 2, Prefix: netip.PrefixFrom(netip.IPv6Unspecified(), 128)},
-	}))
+	if len(c.address) > 0 {
+		current.access.Lock()
+		current.configuration.Address = c.address
+		configuration := current.configuration
+		current.access.Unlock()
+		err = current.updateConfiguration(configuration)
+	} else {
+		err = current.writeCapsule(newAddressCapsule(capsuleTypeAddressRequest, []AssignedAddress{
+			{RequestID: 1, Prefix: netip.PrefixFrom(netip.IPv4Unspecified(), 32)},
+			{RequestID: 2, Prefix: netip.PrefixFrom(netip.IPv6Unspecified(), 128)},
+		}))
+	}
 	if err == nil && len(c.advertiseRoutes) > 0 {
 		err = current.writeCapsule(newRouteCapsule(c.advertiseRoutes))
 	}

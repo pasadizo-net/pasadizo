@@ -20,11 +20,13 @@
   "version": 0,
   "disable_version_fallback": false,
   "tls": {},
+  "address": [],
   "advertise_routes": [],
   "system": false,
   "name": "",
   "mtu": 1280,
   "on_demand": false,
+  "warp": false,
 
   ... // HTTP2 Fields / QUIC Fields
   ... // UDP NAT Fields
@@ -88,6 +90,15 @@ TLS configuration, see [TLS](/configuration/shared/tls/#outbound).
 
 Required for HTTP/3.
 
+### address
+
+List of IP prefixes to use as the local addresses of the interface.
+
+When set, no address is requested from the server, and the interface is configured as soon as the tunnel is established.
+Addresses assigned by the server still replace them.
+
+Required for servers that do not assign addresses, such as Cloudflare WARP.
+
 ### advertise_routes
 
 List of IP prefixes to advertise to the server.
@@ -117,6 +128,18 @@ Tunnel MTU.
 ### on_demand
 
 Allow the endpoint to be disconnected when necessary.
+
+### warp
+
+Connect to the Cloudflare WARP MASQUE endpoint.
+
+The CONNECT-IP request uses the `cf-connect-ip` protocol instead of `connect-ip`, and the HTTP/3 settings also include `SETTINGS_H3_DATAGRAM` (`0x276`) of draft-ietf-masque-h3-datagram-00.
+
+Requires HTTP/3, and `disable_version_fallback` is implied.
+
+The device must be registered with WARP first.
+Use the enrolled key and its certificate as `client_key` and `client_certificate`, and pin the endpoint key with `certificate_public_key_sha256` in [TLS](/configuration/shared/tls/#outbound).
+Set `address` to the addresses given at registration, `path` to `/` and the `Host` header to `cloudflareaccess.com`.
 
 ## HTTP2 Fields
 

@@ -15,6 +15,7 @@ import (
 
 const (
 	upgradeToken       = "connect-ip"
+	warpUpgradeToken   = "cf-connect-ip"
 	DefaultMTU         = 1280
 	PacketHeadroom     = transportHTTP.CapsuleHeadroom
 	QUICPacketOverhead = 51

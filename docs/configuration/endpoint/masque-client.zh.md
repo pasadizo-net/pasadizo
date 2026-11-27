@@ -20,11 +20,13 @@
   "version": 0,
   "disable_version_fallback": false,
   "tls": {},
+  "address": [],
   "advertise_routes": [],
   "system": false,
   "name": "",
   "mtu": 1280,
   "on_demand": false,
+  "warp": false,
 
   ... // HTTP2 字段 / QUIC 字段
   ... // UDP NAT 字段
@@ -88,6 +90,15 @@ TLS 配置，参阅 [TLS](/zh/configuration/shared/tls/#出站)。
 
 HTTP/3 需要 TLS。
 
+### address
+
+用作接口本地地址的 IP 前缀列表。
+
+设置后，不再向服务器请求地址，隧道建立后立即配置接口。
+服务器分配的地址仍会替换它们。
+
+用于不分配地址的服务器，例如 Cloudflare WARP。
+
 ### advertise_routes
 
 向服务器声明的 IP 前缀列表。
@@ -117,6 +128,18 @@ HTTP/3 需要 TLS。
 ### on_demand
 
 允许该 endpoint 在需要时断开连接。
+
+### warp
+
+连接到 Cloudflare WARP MASQUE 端点。
+
+CONNECT-IP 请求使用 `cf-connect-ip` 协议而不是 `connect-ip`，并且 HTTP/3 设置中额外包含 draft-ietf-masque-h3-datagram-00 的 `SETTINGS_H3_DATAGRAM`（`0x276`）。
+
+需要 HTTP/3，并隐含 `disable_version_fallback`。
+
+设备需要先在 WARP 注册。
+在 [TLS](/zh/configuration/shared/tls/#出站) 中将注册的密钥及其证书用作 `client_key` 和 `client_certificate`，并使用 `certificate_public_key_sha256` 固定端点公钥。
+将 `address` 设置为注册时获得的地址，`path` 设置为 `/`，`Host` 请求头设置为 `cloudflareaccess.com`。
 
 ## HTTP2 字段
 

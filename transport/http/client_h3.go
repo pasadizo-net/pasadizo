@@ -77,7 +77,7 @@ func newHTTP3Client(options ClientOptions, authorization string, closeIdle *atom
 		headers:       headers,
 		authorization: authorization,
 		quicConfig:    quicConfig,
-		transport:     &http3.Transport{EnableDatagrams: true, DisableCompression: true},
+		transport:     &http3.Transport{EnableDatagrams: true, DisableCompression: true, AdditionalSettings: options.HTTP3Settings},
 		closeIdle:     closeIdle,
 	}, nil
 }

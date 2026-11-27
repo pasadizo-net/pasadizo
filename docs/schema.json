@@ -3614,6 +3614,19 @@
             "disable_version_fallback": {
               "type": "boolean"
             },
+            "address": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/IPPrefix"
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/IPPrefix"
+                  }
+                }
+              ]
+            },
             "advertise_routes": {
               "type": "array",
               "items": {
@@ -3624,6 +3637,9 @@
               "$ref": "#/$defs/Duration"
             },
             "on_demand": {
+              "type": "boolean"
+            },
+            "warp": {
               "type": "boolean"
             },
             "idle_timeout": {

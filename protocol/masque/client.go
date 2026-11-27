@@ -70,6 +70,17 @@ func NewClientEndpoint(ctx context.Context, router adapter.Router, logger log.Co
 		options.MTU = masque.DefaultMTU
 	}
 	version := options.ResolvedVersion()
+	var http3Settings map[uint64]uint64
+	if options.WARP {
+		if version != 3 {
+			return nil, E.New("WARP mode requires HTTP/3")
+		}
+		if http.NewHTTP3Client == nil {
+			return nil, C.ErrQUICNotIncluded
+		}
+		options.DisableVersionFallback = true
+		http3Settings = masque.WARPHTTP3Settings()
+	}
 	http2Options := options.HTTP2Options
 	if version == 3 {
 		http2Options = options.HTTP3Options.HTTP2Options
@@ -116,6 +127,7 @@ func NewClientEndpoint(ctx context.Context, router adapter.Router, logger log.Co
 		DisableVersionFallback: options.DisableVersionFallback,
 		HTTP2Options:           http2Options,
 		HTTP3Options:           options.HTTP3Options,
+		HTTP3Settings:          http3Settings,
 	})
 	if err != nil {
 		return nil, err
@@ -140,7 +152,9 @@ func NewClientEndpoint(ctx context.Context, router adapter.Router, logger log.Co
 		Logger:          logger,
 		HTTPClient:      httpClient,
 		Path:            options.Path,
+		Address:         options.Address,
 		AdvertiseRoutes: options.AdvertiseRoutes,
+		WARP:            options.WARP,
 		Handler:         clientEndpoint,
 	})
 	if err != nil {

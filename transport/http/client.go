@@ -51,6 +51,7 @@ type ClientOptions struct {
 	DisableVersionFallback bool
 	HTTP2Options           option.HTTP2Options
 	HTTP3Options           option.QUICOptions
+	HTTP3Settings          map[uint64]uint64
 }
 
 type http3Client interface {
