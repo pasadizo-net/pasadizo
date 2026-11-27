@@ -18,6 +18,7 @@ import (
 	C "github.com/pasadizo-net/pasadizo/constant"
 	"github.com/pasadizo-net/pasadizo/experimental"
 	"github.com/pasadizo-net/pasadizo/experimental/clashmode"
+	"github.com/pasadizo-net/pasadizo/experimental/metrics"
 	"github.com/pasadizo-net/pasadizo/log"
 	"github.com/pasadizo-net/pasadizo/option"
 	"github.com/sagernet/cors"
@@ -117,7 +118,7 @@ func NewServer(ctx context.Context, logFactory log.ObservableFactory, options op
 		r.Get("/logs", getLogs(s.ctx, logFactory))
 		r.Get("/traffic", traffic(s.ctx, trafficManager))
 		r.Get("/version", version)
-		r.Get("/metrics", metrics(s))
+		r.Get("/metrics", metrics.NewCollector(ctx).ServeHTTP)
 		r.Mount("/configs", configRouter(s, logFactory))
 		r.Mount("/proxies", proxyRouter(s, s.router))
 		r.Mount("/rules", ruleRouter(s.router))

@@ -1,21 +1,57 @@
-package clashapi
+// Package metrics writes the Prometheus metrics that the Clash API and the
+// standalone metrics listener serve.
+package metrics
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"net/http"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/pasadizo-net/pasadizo/adapter"
+	boxMetrics "github.com/pasadizo-net/pasadizo/common/metrics"
+	"github.com/pasadizo-net/pasadizo/common/trafficcontrol"
+	"github.com/pasadizo-net/pasadizo/common/urltest"
 	N "github.com/sagernet/sing/common/network"
+	"github.com/sagernet/sing/service"
 )
 
-// Prometheus text exposition format, version 0.0.4.
-const metricsContentType = "text/plain; version=0.0.4; charset=utf-8"
+// ContentType is the Prometheus text exposition format, version 0.0.4.
+const ContentType = "text/plain; version=0.0.4; charset=utf-8"
+
+// processStart stands in for the start time of the process: the package is
+// initialized before main runs.
+var processStart = time.Now()
+
+// Collector gathers the metrics of a box.
+type Collector struct {
+	registry       *boxMetrics.Registry
+	trafficManager *trafficcontrol.Manager
+	urlTestHistory *urltest.HistoryStorage
+	outbound       adapter.OutboundManager
+	endpoint       adapter.EndpointManager
+}
+
+// NewCollector reads the services it needs from the box context. The traffic
+// manager must be registered.
+func NewCollector(ctx context.Context) *Collector {
+	return &Collector{
+		registry:       boxMetrics.FromContext(ctx),
+		trafficManager: service.PtrFromContext[trafficcontrol.Manager](ctx),
+		urlTestHistory: service.PtrFromContext[urltest.HistoryStorage](ctx),
+		outbound:       service.FromContext[adapter.OutboundManager](ctx),
+		endpoint:       service.FromContext[adapter.EndpointManager](ctx),
+	}
+}
 
 type metricsSnapshot struct {
+	StartTime   time.Time
+	Counters    boxMetrics.Snapshot
 	Connections int
 	Upload      int64
 	Download    int64
@@ -38,27 +74,41 @@ type groupMetrics struct {
 	All      []string
 }
 
-func metrics(server *Server) func(w http.ResponseWriter, r *http.Request) {
-	return func(w http.ResponseWriter, r *http.Request) {
-		var buffer bytes.Buffer
-		writeMetrics(&buffer, server.metricsSnapshot())
-		w.Header().Set("Content-Type", metricsContentType)
-		w.WriteHeader(http.StatusOK)
+// ServeHTTP writes the metrics in the Prometheus text format.
+func (c *Collector) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	var buffer bytes.Buffer
+	c.Write(&buffer)
+	w.Header().Set("Content-Type", ContentType)
+	w.WriteHeader(http.StatusOK)
+	if r.Method != http.MethodHead {
 		_, _ = w.Write(buffer.Bytes())
 	}
 }
 
-func (s *Server) metricsSnapshot() *metricsSnapshot {
-	upload, download := s.trafficManager.Total()
+// Write writes the metrics in the Prometheus text format.
+func (c *Collector) Write(writer io.Writer) {
+	writeMetrics(writer, c.snapshot())
+}
+
+func inuseMemory() uint64 {
+	var memStats runtime.MemStats
+	runtime.ReadMemStats(&memStats)
+	return memStats.StackInuse + memStats.HeapInuse + memStats.HeapIdle - memStats.HeapReleased
+}
+
+func (c *Collector) snapshot() *metricsSnapshot {
+	upload, download := c.trafficManager.Total()
 	snapshot := &metricsSnapshot{
-		Connections: s.trafficManager.ConnectionsLen(),
+		StartTime:   processStart,
+		Counters:    c.registry.Snapshot(),
+		Connections: c.trafficManager.ConnectionsLen(),
 		Upload:      upload,
 		Download:    download,
 		Memory:      inuseMemory(),
 	}
-	outboundTotal := s.trafficManager.OutboundTotal()
-	managedOutbounds := s.outbound.Outbounds()
-	endpoints := s.endpoint.Endpoints()
+	outboundTotal := c.trafficManager.OutboundTotal()
+	managedOutbounds := c.outbound.Outbounds()
+	endpoints := c.endpoint.Endpoints()
 	outbounds := make([]adapter.Outbound, 0, len(managedOutbounds)+len(endpoints))
 	outbounds = append(outbounds, managedOutbounds...)
 	for _, endpoint := range endpoints {
@@ -87,7 +137,7 @@ func (s *Server) metricsSnapshot() *metricsSnapshot {
 			Upload:      statistics.Upload,
 			Download:    statistics.Download,
 			Connections: statistics.Connections,
-			Delay:       s.urlTestHistory.LoadURLTestHistory(tag),
+			Delay:       c.urlTestHistory.LoadURLTestHistory(tag),
 		})
 	}
 	// Traffic of outbounds that are gone or have no tag.
@@ -153,6 +203,36 @@ func writeMetrics(writer io.Writer, snapshot *metricsSnapshot) {
 			w.sample("sing_box_group_selected", []string{"group", group.Tag, "outbound", member}, value)
 		}
 	}
+
+	counters := snapshot.Counters
+	w.header("sing_box_inbound_connections_total", "counter", "Connections accepted per inbound.")
+	for _, inbound := range counters.Inbounds {
+		w.sample("sing_box_inbound_connections_total", []string{"inbound", inbound.Inbound, "network", inbound.Network}, strconv.FormatUint(inbound.Connections, 10))
+	}
+	w.header("sing_box_inbound_errors_total", "counter", "Inbound connections that failed to route or to dial their outbound.")
+	for _, inbound := range counters.InboundErrors {
+		w.sample("sing_box_inbound_errors_total", []string{"inbound", inbound.Inbound}, strconv.FormatUint(inbound.Errors, 10))
+	}
+	w.header("sing_box_outbound_dials_total", "counter", "Dials through each outbound.")
+	for _, dial := range counters.Dials {
+		w.sample("sing_box_outbound_dials_total", []string{"outbound", dial.Outbound}, strconv.FormatUint(dial.Dials, 10))
+	}
+	w.header("sing_box_outbound_dial_errors_total", "counter", "Failed dials through each outbound.")
+	for _, dial := range counters.Dials {
+		w.sample("sing_box_outbound_dial_errors_total", []string{"outbound", dial.Outbound}, strconv.FormatUint(dial.Errors, 10))
+	}
+	w.header("sing_box_outbound_dial_duration_seconds", "histogram", "Duration of dials through each outbound, failed ones included.")
+	for _, dial := range counters.Dials {
+		for i, bound := range boxMetrics.DialDurationBuckets {
+			w.sample("sing_box_outbound_dial_duration_seconds_bucket", []string{"outbound", dial.Outbound, "le", strconv.FormatFloat(bound, 'f', -1, 64)}, strconv.FormatUint(dial.Buckets[i], 10))
+		}
+		count := strconv.FormatUint(dial.Buckets[len(dial.Buckets)-1], 10)
+		w.sample("sing_box_outbound_dial_duration_seconds_bucket", []string{"outbound", dial.Outbound, "le", "+Inf"}, count)
+		w.sample("sing_box_outbound_dial_duration_seconds_sum", []string{"outbound", dial.Outbound}, strconv.FormatFloat(dial.Sum, 'f', -1, 64))
+		w.sample("sing_box_outbound_dial_duration_seconds_count", []string{"outbound", dial.Outbound}, count)
+	}
+	w.header("process_start_time_seconds", "gauge", "Start time of the process since unix epoch in seconds.")
+	w.sample("process_start_time_seconds", nil, strconv.FormatFloat(float64(snapshot.StartTime.UnixMilli())/1000, 'f', -1, 64))
 }
 
 type metricsWriter struct {

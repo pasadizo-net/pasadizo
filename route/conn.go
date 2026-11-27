@@ -16,6 +16,7 @@ import (
 
 	"github.com/pasadizo-net/pasadizo/adapter"
 	"github.com/pasadizo-net/pasadizo/common/dialer"
+	"github.com/pasadizo-net/pasadizo/common/metrics"
 	"github.com/pasadizo-net/pasadizo/common/sniff"
 	"github.com/pasadizo-net/pasadizo/common/tlsfragment"
 	"github.com/pasadizo-net/pasadizo/common/tlsspoof"
@@ -39,6 +40,7 @@ var _ adapter.ConnectionManager = (*ConnectionManager)(nil)
 type ConnectionManager struct {
 	logger         logger.ContextLogger
 	urlTestHistory *urltest.HistoryStorage
+	metrics        *metrics.Registry
 	access         sync.Mutex
 	connections    list.List[io.Closer]
 }
@@ -47,6 +49,7 @@ func NewConnectionManager(ctx context.Context, logger logger.ContextLogger) *Con
 	return &ConnectionManager{
 		logger:         logger,
 		urlTestHistory: service.PtrFromContext[urltest.HistoryStorage](ctx),
+		metrics:        metrics.FromContext(ctx),
 	}
 }
 
@@ -112,6 +115,7 @@ func (m *ConnectionManager) NewConnection(ctx context.Context, this N.Dialer, co
 		remoteConn net.Conn
 		err        error
 	)
+	dialStart := time.Now()
 	if parallelDialer, isParallel := this.(dialer.ParallelNetworkDialer); isParallel {
 		remoteConn, err = parallelDialer.DialParallelNetwork(ctx, N.NetworkTCP, metadata.Destination, metadata.DestinationAddresses, metadata.NetworkStrategy, metadata.NetworkType, metadata.FallbackNetworkType, metadata.FallbackDelay)
 	} else if len(metadata.DestinationAddresses) > 0 {
@@ -119,7 +123,9 @@ func (m *ConnectionManager) NewConnection(ctx context.Context, this N.Dialer, co
 	} else {
 		remoteConn, err = this.DialContext(ctx, N.NetworkTCP, metadata.Destination)
 	}
+	m.observeDial(this, dialStart, err)
 	if err != nil {
+		m.metrics.InboundError(metadata.Inbound, err)
 		var remoteString string
 		if len(metadata.DestinationAddresses) > 0 {
 			remoteString = "[" + strings.Join(common.Map(metadata.DestinationAddresses, netip.Addr.String), ",") + "]"
@@ -199,6 +205,7 @@ func (m *ConnectionManager) NewPacketConnection(ctx context.Context, this N.Dial
 		err                error
 	)
 	if metadata.UDPConnect {
+		dialStart := time.Now()
 		if parallelDialer, isParallel := this.(dialer.ParallelNetworkDialer); isParallel {
 			remoteConn, err = parallelDialer.DialParallelNetwork(ctx, N.NetworkUDP, metadata.Destination, metadata.DestinationAddresses, metadata.NetworkStrategy, metadata.NetworkType, metadata.FallbackNetworkType, metadata.FallbackDelay)
 		} else if len(metadata.DestinationAddresses) > 0 {
@@ -206,7 +213,9 @@ func (m *ConnectionManager) NewPacketConnection(ctx context.Context, this N.Dial
 		} else {
 			remoteConn, err = this.DialContext(ctx, N.NetworkUDP, metadata.Destination)
 		}
+		m.observeDial(this, dialStart, err)
 		if err != nil {
+			m.metrics.InboundError(metadata.Inbound, err)
 			var remoteString string
 			if len(metadata.DestinationAddresses) > 0 {
 				remoteString = "[" + strings.Join(common.Map(metadata.DestinationAddresses, netip.Addr.String), ",") + "]"
@@ -229,6 +238,7 @@ func (m *ConnectionManager) NewPacketConnection(ctx context.Context, this N.Dial
 			destinationAddress = connRemoteAddr
 		}
 	} else {
+		dialStart := time.Now()
 		if parallelDialer, isParallel := this.(dialer.ParallelNetworkDialer); isParallel {
 			remotePacketConn, destinationAddress, err = parallelDialer.ListenSerialNetworkPacket(ctx, metadata.Destination, metadata.DestinationAddresses, metadata.NetworkStrategy, metadata.NetworkType, metadata.FallbackNetworkType, metadata.FallbackDelay)
 		} else if len(metadata.DestinationAddresses) > 0 {
@@ -238,7 +248,9 @@ func (m *ConnectionManager) NewPacketConnection(ctx context.Context, this N.Dial
 		} else {
 			remotePacketConn, err = this.ListenPacket(ctx, metadata.Destination)
 		}
+		m.observeDial(this, dialStart, err)
 		if err != nil {
+			m.metrics.InboundError(metadata.Inbound, err)
 			var dialerString string
 			if outbound, isOutbound := this.(adapter.Outbound); isOutbound {
 				dialerString = " using outbound/" + outbound.Type() + "[" + outbound.Tag() + "]"
@@ -318,6 +330,17 @@ func (m *ConnectionManager) NewPacketConnection(ctx context.Context, this N.Dial
 // destination says nothing about the member: the group above it is not told
 // directly, and the destination group itself gets the failure with its
 // member and the destination, to decide on the member's health.
+// observeDial records the dial of a connection under the tag of the outbound
+// that handles it.
+func (m *ConnectionManager) observeDial(this N.Dialer, start time.Time, err error) {
+	if m.metrics == nil {
+		return
+	}
+	if tag, isOutbound := metrics.TagOf(this); isOutbound {
+		m.metrics.ObserveDial(tag, start, err)
+	}
+}
+
 func (m *ConnectionManager) reportConnectionFailure(metadata adapter.InboundContext, network string, err error) {
 	if E.IsClosedOrCanceled(err) {
 		return

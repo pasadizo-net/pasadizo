@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/pasadizo-net/pasadizo/adapter"
+	"github.com/pasadizo-net/pasadizo/common/metrics"
 	C "github.com/pasadizo-net/pasadizo/constant"
 	"github.com/pasadizo-net/pasadizo/experimental/deprecated"
 	"github.com/pasadizo-net/pasadizo/option"
@@ -49,13 +50,17 @@ func NewWithOptions(options Options) (N.Dialer, error) {
 		if outboundManager == nil {
 			return nil, E.New("missing outbound manager")
 		}
-		dialer = NewDetour(outboundManager, dialOptions.Detour, options.DisableEmptyDirectCheck)
+		detourDialer := NewDetour(outboundManager, dialOptions.Detour, options.DisableEmptyDirectCheck).(*DetourDialer)
+		detourDialer.metrics = metrics.FromContext(options.Context)
+		dialer = detourDialer
 	} else if options.DefaultOutbound {
 		outboundManager := service.FromContext[adapter.OutboundManager](options.Context)
 		if outboundManager == nil {
 			return nil, E.New("missing outbound manager")
 		}
-		dialer = NewDefaultOutboundDetour(outboundManager)
+		detourDialer := NewDefaultOutboundDetour(outboundManager).(*DetourDialer)
+		detourDialer.metrics = metrics.FromContext(options.Context)
+		dialer = detourDialer
 	} else {
 		dialer, err = NewDefault(options.Context, dialOptions)
 		if err != nil {

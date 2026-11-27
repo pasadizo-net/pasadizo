@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/pasadizo-net/pasadizo/adapter"
+	"github.com/pasadizo-net/pasadizo/common/metrics"
 	"github.com/sagernet/sing/common"
 	E "github.com/sagernet/sing/common/exceptions"
 	M "github.com/sagernet/sing/common/metadata"
@@ -22,6 +23,8 @@ type DetourDialer struct {
 	defaultOutbound         bool
 	disableEmptyDirectCheck bool
 	dialer                  N.Dialer
+	outbound                adapter.Outbound
+	metrics                 *metrics.Registry
 	initOnce                sync.Once
 	initErr                 error
 }
@@ -75,22 +78,23 @@ func (d *DetourDialer) init() {
 		}
 	}
 	d.dialer = dialer
+	d.outbound = dialer
 }
 
 func (d *DetourDialer) DialContext(ctx context.Context, network string, destination M.Socksaddr) (net.Conn, error) {
-	dialer, err := d.Dialer()
+	_, err := d.Dialer()
 	if err != nil {
 		return nil, err
 	}
-	return dialer.DialContext(ctx, network, destination)
+	return d.metrics.DialContext(ctx, d.outbound, network, destination)
 }
 
 func (d *DetourDialer) ListenPacket(ctx context.Context, destination M.Socksaddr) (net.PacketConn, error) {
-	dialer, err := d.Dialer()
+	_, err := d.Dialer()
 	if err != nil {
 		return nil, err
 	}
-	return dialer.ListenPacket(ctx, destination)
+	return d.metrics.ListenPacket(ctx, d.outbound, destination)
 }
 
 func (d *DetourDialer) Upstream() any {
