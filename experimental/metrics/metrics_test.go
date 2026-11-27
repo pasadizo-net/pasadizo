@@ -2,11 +2,13 @@ package metrics
 
 import (
 	"bytes"
+	"net/netip"
 	"testing"
 	"time"
 
 	"github.com/pasadizo-net/pasadizo/adapter"
 	boxMetrics "github.com/pasadizo-net/pasadizo/common/metrics"
+	"github.com/pasadizo-net/pasadizo/common/trafficcontrol"
 
 	"github.com/stretchr/testify/require"
 )
@@ -129,4 +131,40 @@ sing_box_outbound_dial_duration_seconds_count{outbound="hy2-1"} 10
 # TYPE process_start_time_seconds gauge
 process_start_time_seconds 1764230000.25
 `, buffer.String())
+}
+
+func TestWriteSourceMetrics(t *testing.T) {
+	t.Parallel()
+	var buffer bytes.Buffer
+	writeMetrics(&buffer, &metricsSnapshot{
+		StartTime: time.UnixMilli(1764230000250),
+		Sources: []trafficcontrol.SourceStatistics{
+			{
+				SourceKey:   trafficcontrol.SourceKey{Source: netip.MustParseAddr("192.168.80.199"), InboundType: "tun", Inbound: "tun-in"},
+				Upload:      2048,
+				Download:    8192,
+				Connections: 5,
+			},
+			{
+				SourceKey: trafficcontrol.SourceKey{Source: netip.MustParseAddr("fdfe:dcba:9876::2"), InboundType: "mixed", Inbound: "mixed-in"},
+				Upload:    10,
+				Download:  20,
+			},
+		},
+	})
+	output := buffer.String()
+	require.Contains(t, output, "# TYPE sing_box_source_connections gauge\n"+
+		`sing_box_source_connections{source="192.168.80.199",inbound="tun-in"} 5`+"\n"+
+		`sing_box_source_connections{source="fdfe:dcba:9876::2",inbound="mixed-in"} 0`+"\n")
+	require.Contains(t, output, "# TYPE sing_box_source_upload_bytes_total counter\n"+
+		`sing_box_source_upload_bytes_total{source="192.168.80.199",inbound="tun-in"} 2048`+"\n")
+	require.Contains(t, output, "# TYPE sing_box_source_download_bytes_total counter\n"+
+		`sing_box_source_download_bytes_total{source="192.168.80.199",inbound="tun-in"} 8192`+"\n")
+}
+
+func TestWriteMetricsWithoutSources(t *testing.T) {
+	t.Parallel()
+	var buffer bytes.Buffer
+	writeMetrics(&buffer, &metricsSnapshot{StartTime: time.UnixMilli(1764230000250)})
+	require.NotContains(t, buffer.String(), "sing_box_source_")
 }

@@ -19,6 +19,7 @@ type MetricsOptions struct {
 	Path     string `json:"path,omitempty"`
 	Username string `json:"username,omitempty"`
 	Password string `json:"password,omitempty"`
+	Sources  bool   `json:"sources,omitempty"`
 }
 
 type CacheFileOptions struct {
