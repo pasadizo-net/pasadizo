@@ -5,9 +5,11 @@
 # package pasadizo-bin. Then attest the provenance of every file in
 # checksums.txt.
 #
-# The Homebrew cask needs the secret HOMEBREW_TAP_TOKEN and the AUR package
-# needs the secret AUR_KEY; without a secret, its step is skipped and the rest
-# of the release still runs.
+# The Homebrew cask needs the secret HOMEBREW_TAP_KEY, the private half of a
+# deploy key with write access on pasadizo-net/homebrew-tap, and the AUR
+# package needs the secret AUR_KEY, the private half of an SSH key registered
+# on the AUR account of the package's maintainer. Without a secret, its step is
+# skipped and the rest of the release still runs.
 name: pasadizo-release
 
 on:
@@ -26,7 +28,7 @@ jobs:
     needs: ci
     runs-on: ubuntu-latest
     env:
-      HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+      HOMEBREW_TAP_KEY: ${{ secrets.HOMEBREW_TAP_KEY }}
       AUR_KEY: ${{ secrets.AUR_KEY }}
     steps:
       - uses: actions/checkout@v7
@@ -43,8 +45,8 @@ jobs:
             echo "PASADIZO_LDFLAGS=$(cat release/LDFLAGS)"
           } >>"$GITHUB_ENV"
           skip=()
-          if [ -z "$HOMEBREW_TAP_TOKEN" ]; then
-            echo "::warning::HOMEBREW_TAP_TOKEN is not set; the Homebrew cask is not published."
+          if [ -z "$HOMEBREW_TAP_KEY" ]; then
+            echo "::warning::HOMEBREW_TAP_KEY is not set; the Homebrew cask is not published."
             skip+=(homebrew)
           fi
           if [ -z "$AUR_KEY" ]; then

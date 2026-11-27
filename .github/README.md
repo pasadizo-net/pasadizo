@@ -41,6 +41,8 @@ Tags look like `v1.15.0-alpha.14-pasadizo.2`: the upstream version, then Pasadiz
 - a `checksums.txt` file and a GitHub build provenance attestation for every file in it (`gh attestation verify <file> --repo pasadizo-net/pasadizo`);
 - the Homebrew cask `pasadizo` in [pasadizo-net/homebrew-tap](https://github.com/pasadizo-net/homebrew-tap) and the AUR package [`pasadizo-bin`](https://aur.archlinux.org/packages/pasadizo-bin).
 
+GoReleaser pushes the cask and the package over SSH. The Actions secret `HOMEBREW_TAP_KEY` holds the private half of a deploy key with write access on `pasadizo-net/homebrew-tap`, and `AUR_KEY` holds the private half of an SSH key registered on the AUR account that maintains `pasadizo-bin`. When a secret is not set, the release skips that step and publishes the rest.
+
 ## Installation
 
 Pasadizo installs beside sing-box and does not replace it: the program is `pasadizo`, the configuration is in `/etc/pasadizo`, and the systemd units are `pasadizo.service` and `pasadizo@.service`.

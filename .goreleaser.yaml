@@ -103,7 +103,12 @@ homebrew_casks:
     repository:
       owner: pasadizo-net
       name: homebrew-tap
-      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+      branch: main
+      # Push over SSH with a deploy key that has write access on the tap
+      # (secret HOMEBREW_TAP_KEY), not with a token.
+      git:
+        url: git@github.com:pasadizo-net/homebrew-tap.git
+        private_key: "{{ .Env.HOMEBREW_TAP_KEY }}"
     directory: Casks
     commit_author:
       name: Parham Alvani
