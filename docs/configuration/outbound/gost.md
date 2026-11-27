@@ -101,7 +101,7 @@ The server address.
 
 #### server_port
 
-==Required==
+==Required== unless `transport` is `icmp`.
 
 The server port.
 

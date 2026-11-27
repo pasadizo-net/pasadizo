@@ -89,12 +89,13 @@ func NewOutbound(ctx context.Context, router adapter.Router, logger log.ContextL
 	if options.Server == "" {
 		return nil, E.New("missing server")
 	}
-	if options.ServerPort == 0 {
-		return nil, E.New("missing server_port")
-	}
 	transport := options.Transport
 	if transport == "" {
 		transport = transportTCP
+	}
+	// gost's icmp listener has no port.
+	if options.ServerPort == 0 && transport != transportICMP {
+		return nil, E.New("missing server_port")
 	}
 	connector := options.Connector
 	if connector == "" {
