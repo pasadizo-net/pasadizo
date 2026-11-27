@@ -40,7 +40,7 @@ Each feature is one commit on top of upstream, so it can be read, reverted or of
 
 Tags look like `v1.15.0-alpha.14-pasadizo.2`: the upstream version, then Pasadizo's release number. GoReleaser (`.goreleaser.yaml`, run by `.github/workflows/pasadizo-release.yml`) builds each release with upstream's release build tags and linker flags (`release/DEFAULT_BUILD_TAGS_OTHERS`, `release/LDFLAGS`). A release has:
 
-- static binaries for linux `amd64`, `arm64` and `armv7` and darwin `amd64` and `arm64`, in `pasadizo-<version>-<os>-<arch>.tar.gz` archives with the license, this README, an example configuration and the systemd units;
+- static binaries for linux `amd64`, `arm64` and `armv7` and darwin `amd64` and `arm64`, in `pasadizo-<version>-<os>-<arch>.tar.gz` archives with the license, this README, an example configuration and the systemd units. The Linux binaries have the NaiveProxy outbound, which loads `libcronet.so` from the directory of the binary; the Linux archives carry it;
 - `.deb` and `.rpm` packages for linux;
 - a `checksums.txt` file and a GitHub build provenance attestation for every file in it (`gh attestation verify <file> --repo pasadizo-net/pasadizo`);
 - the Homebrew cask `pasadizo` in [pasadizo-net/homebrew-tap](https://github.com/pasadizo-net/homebrew-tap) and the AUR package [`pasadizo-bin`](https://aur.archlinux.org/packages/pasadizo-bin).
@@ -53,7 +53,7 @@ Pasadizo installs beside sing-box and does not replace it: the program is `pasad
 
 | From | Command |
 | --- | --- |
-| A GitHub release | Download the archive for your system from the [releases](https://github.com/pasadizo-net/pasadizo/releases), check it with `sha256sum --ignore-missing -c checksums.txt`, and put `pasadizo` in your `PATH`. |
+| A GitHub release | Download the archive for your system from the [releases](https://github.com/pasadizo-net/pasadizo/releases), check it with `sha256sum --ignore-missing -c checksums.txt`, and put `pasadizo` in your `PATH`. For NaiveProxy on Linux, keep `libcronet.so` in the same directory as the binary. |
 | Debian, Ubuntu | `sudo apt install ./pasadizo_<version>_<arch>.deb` |
 | Fedora, RHEL | `sudo dnf install ./pasadizo-<version>.<arch>.rpm` |
 | Homebrew (macOS, Linux) | `brew install --cask pasadizo-net/tap/pasadizo` |
