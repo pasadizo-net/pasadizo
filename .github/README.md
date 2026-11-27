@@ -1,3 +1,16 @@
+<p align="center">
+  <img src="https://raw.githubusercontent.com/pasadizo-net/.github/main/assets/banner.png" alt="Pasadizo, a secret passage for your whole network" width="100%">
+</p>
+
+<p align="center">
+  <a href="https://github.com/pasadizo-net/pasadizo/releases"><img alt="Release" src="https://img.shields.io/github/v/release/pasadizo-net/pasadizo?include_prereleases&sort=semver&label=release&color=FFB347"></a>
+  <a href="https://github.com/pasadizo-net/pasadizo/actions/workflows/pasadizo-ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/pasadizo-net/pasadizo/pasadizo-ci.yml?branch=main&label=ci"></a>
+  <a href="https://github.com/pasadizo-net/pasadizo/actions/workflows/pasadizo-sync.yml"><img alt="Upstream sync" src="https://img.shields.io/github/actions/workflow/status/pasadizo-net/pasadizo/pasadizo-sync.yml?branch=main&label=upstream%20sync"></a>
+  <a href="../LICENSE"><img alt="License: GPL-3.0-or-later" src="https://img.shields.io/badge/license-GPL--3.0--or--later-1E1B4B"></a>
+  <a href="../go.mod"><img alt="Go version" src="https://img.shields.io/github/go-mod/go-version/pasadizo-net/pasadizo?color=00ADD8"></a>
+  <a href="https://github.com/SagerNet/sing-box"><img alt="Based on sing-box" src="https://img.shields.io/badge/based%20on-sing--box-64748B"></a>
+</p>
+
 # Pasadizo
 
 Pasadizo ("secret passage" in Spanish) is a proxy platform derived from [sing-box](https://github.com/SagerNet/sing-box). It follows sing-box's `testing` branch and adds features for a home gateway that sends a whole network through tunnels on a lossy, filtered line.
