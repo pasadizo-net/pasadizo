@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sagernet/sing-box/common/winmutex"
+	"github.com/pasadizo-net/pasadizo/common/winmutex"
 	E "github.com/sagernet/sing/common/exceptions"
 
 	"github.com/stretchr/testify/require"

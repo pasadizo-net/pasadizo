@@ -6,9 +6,9 @@ import (
 	"path/filepath"
 	"syscall"
 
-	C "github.com/sagernet/sing-box/constant"
-	"github.com/sagernet/sing-box/experimental/libbox"
-	"github.com/sagernet/sing-box/log"
+	C "github.com/pasadizo-net/pasadizo/constant"
+	"github.com/pasadizo-net/pasadizo/experimental/libbox"
+	"github.com/pasadizo-net/pasadizo/log"
 	E "github.com/sagernet/sing/common/exceptions"
 
 	"github.com/spf13/cobra"

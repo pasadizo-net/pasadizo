@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sagernet/sing-box/common/trafficcontrol"
+	"github.com/pasadizo-net/pasadizo/common/trafficcontrol"
 )
 
 func TestSourceStatsHandler(t *testing.T) {

@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	C "github.com/sagernet/sing-box/constant"
+	C "github.com/pasadizo-net/pasadizo/constant"
 	N "github.com/sagernet/sing/common/network"
 
 	"golang.org/x/net/publicsuffix"

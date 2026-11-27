@@ -6,8 +6,8 @@ import (
 	"os"
 	"path/filepath"
 
-	C "github.com/sagernet/sing-box/constant"
-	"github.com/sagernet/sing-box/experimental/locale"
+	C "github.com/pasadizo-net/pasadizo/constant"
+	"github.com/pasadizo-net/pasadizo/experimental/locale"
 	E "github.com/sagernet/sing/common/exceptions"
 	"github.com/sagernet/tailscale/atomicfile"
 

@@ -5,8 +5,8 @@ import (
 	"os"
 	"os/exec"
 
-	"github.com/sagernet/sing-box/cmd/internal/build_shared"
-	"github.com/sagernet/sing-box/log"
+	"github.com/pasadizo-net/pasadizo/cmd/internal/build_shared"
+	"github.com/pasadizo-net/pasadizo/log"
 )
 
 func main() {

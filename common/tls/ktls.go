@@ -4,7 +4,7 @@ import (
 	"context"
 	"net"
 
-	"github.com/sagernet/sing-box/common/ktls"
+	"github.com/pasadizo-net/pasadizo/common/ktls"
 	E "github.com/sagernet/sing/common/exceptions"
 	"github.com/sagernet/sing/common/logger"
 	aTLS "github.com/sagernet/sing/common/tls"

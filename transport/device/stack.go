@@ -6,7 +6,7 @@ import (
 	"net/netip"
 	"sync"
 
-	"github.com/sagernet/sing-box/common/interrupt"
+	"github.com/pasadizo-net/pasadizo/common/interrupt"
 	"github.com/sagernet/sing-tun"
 	"github.com/sagernet/sing/common"
 	"github.com/sagernet/sing/common/buf"

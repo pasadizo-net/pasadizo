@@ -3,7 +3,7 @@ package option
 import (
 	"reflect"
 
-	"github.com/sagernet/sing-box/schema"
+	"github.com/pasadizo-net/pasadizo/schema"
 	E "github.com/sagernet/sing/common/exceptions"
 	"github.com/sagernet/sing/common/json"
 	"github.com/sagernet/sing/common/json/badjson"

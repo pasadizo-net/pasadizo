@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	C "github.com/sagernet/sing-box/constant"
+	C "github.com/pasadizo-net/pasadizo/constant"
 	"github.com/sagernet/sing/common/json"
 
 	"github.com/stretchr/testify/require"

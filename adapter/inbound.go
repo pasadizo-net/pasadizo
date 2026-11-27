@@ -6,12 +6,12 @@ import (
 	"net/netip"
 	"time"
 
-	"github.com/sagernet/sing-box/common/fairshare"
-	"github.com/sagernet/sing-box/common/interrupt"
-	"github.com/sagernet/sing-box/common/tlsspoof"
-	C "github.com/sagernet/sing-box/constant"
-	"github.com/sagernet/sing-box/log"
-	"github.com/sagernet/sing-box/option"
+	"github.com/pasadizo-net/pasadizo/common/fairshare"
+	"github.com/pasadizo-net/pasadizo/common/interrupt"
+	"github.com/pasadizo-net/pasadizo/common/tlsspoof"
+	C "github.com/pasadizo-net/pasadizo/constant"
+	"github.com/pasadizo-net/pasadizo/log"
+	"github.com/pasadizo-net/pasadizo/option"
 	M "github.com/sagernet/sing/common/metadata"
 
 	"github.com/miekg/dns"

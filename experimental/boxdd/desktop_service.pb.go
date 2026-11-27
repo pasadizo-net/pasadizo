@@ -5,7 +5,7 @@ import (
 	sync "sync"
 	unsafe "unsafe"
 
-	daemon "github.com/sagernet/sing-box/daemon"
+	daemon "github.com/pasadizo-net/pasadizo/daemon"
 
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"

@@ -9,12 +9,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sagernet/sing-box/adapter"
-	"github.com/sagernet/sing-box/common/dialer"
-	C "github.com/sagernet/sing-box/constant"
-	boxDNS "github.com/sagernet/sing-box/dns"
-	"github.com/sagernet/sing-box/log"
-	"github.com/sagernet/sing-box/option"
+	"github.com/pasadizo-net/pasadizo/adapter"
+	"github.com/pasadizo-net/pasadizo/common/dialer"
+	C "github.com/pasadizo-net/pasadizo/constant"
+	boxDNS "github.com/pasadizo-net/pasadizo/dns"
+	"github.com/pasadizo-net/pasadizo/log"
+	"github.com/pasadizo-net/pasadizo/option"
 	M "github.com/sagernet/sing/common/metadata"
 
 	mDNS "github.com/miekg/dns"

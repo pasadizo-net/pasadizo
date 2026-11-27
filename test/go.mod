@@ -2,9 +2,9 @@ module test
 
 go 1.26.11
 
-require github.com/sagernet/sing-box v0.0.0
+require github.com/pasadizo-net/pasadizo v0.0.0
 
-replace github.com/sagernet/sing-box => ../
+replace github.com/pasadizo-net/pasadizo => ../
 
 require (
 	github.com/coder/websocket v1.8.15

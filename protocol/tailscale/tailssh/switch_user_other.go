@@ -2,7 +2,7 @@
 
 package tailssh
 
-import "github.com/sagernet/sing-box/adapter"
+import "github.com/pasadizo-net/pasadizo/adapter"
 
 func checkSwitchUserPrivilege(_ *adapter.PlatformUser) error {
 	return nil

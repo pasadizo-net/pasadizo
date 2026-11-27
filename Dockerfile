@@ -16,8 +16,8 @@ RUN set -ex \
     && export LDFLAGS_SHARED=$(cat release/LDFLAGS) \
     && go build -v -trimpath -tags "$TAGS" \
         -o /go/bin/sing-box \
-        -ldflags "-X \"github.com/sagernet/sing-box/constant.Version=$VERSION\" $LDFLAGS_SHARED -s -w -buildid=" \
-        ./cmd/sing-box
+        -ldflags "-X \"github.com/pasadizo-net/pasadizo/constant.Version=$VERSION\" $LDFLAGS_SHARED -s -w -buildid=" \
+        ./cmd/pasadizo
 FROM --platform=$TARGETPLATFORM alpine AS dist
 LABEL maintainer="nekohasekai <contact-git@sekai.icu>"
 RUN set -ex \

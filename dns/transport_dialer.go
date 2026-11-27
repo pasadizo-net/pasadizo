@@ -3,8 +3,8 @@ package dns
 import (
 	"context"
 
-	"github.com/sagernet/sing-box/common/dialer"
-	"github.com/sagernet/sing-box/option"
+	"github.com/pasadizo-net/pasadizo/common/dialer"
+	"github.com/pasadizo-net/pasadizo/option"
 	N "github.com/sagernet/sing/common/network"
 )
 

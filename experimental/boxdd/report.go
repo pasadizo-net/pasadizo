@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sagernet/sing-box/experimental/libbox"
+	"github.com/pasadizo-net/pasadizo/experimental/libbox"
 	"github.com/sagernet/sing/common/rw"
 
 	"google.golang.org/grpc/codes"

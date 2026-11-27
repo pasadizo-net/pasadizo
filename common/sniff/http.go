@@ -6,9 +6,9 @@ import (
 	"errors"
 	"io"
 
-	"github.com/sagernet/sing-box/adapter"
-	"github.com/sagernet/sing-box/common/badhttp"
-	C "github.com/sagernet/sing-box/constant"
+	"github.com/pasadizo-net/pasadizo/adapter"
+	"github.com/pasadizo-net/pasadizo/common/badhttp"
+	C "github.com/pasadizo-net/pasadizo/constant"
 	E "github.com/sagernet/sing/common/exceptions"
 	M "github.com/sagernet/sing/common/metadata"
 )

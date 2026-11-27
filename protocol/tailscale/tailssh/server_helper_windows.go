@@ -10,8 +10,8 @@ import (
 	"os/user"
 	"strings"
 
+	"github.com/pasadizo-net/pasadizo/adapter"
 	gliderssh "github.com/sagernet/gliderssh"
-	"github.com/sagernet/sing-box/adapter"
 	E "github.com/sagernet/sing/common/exceptions"
 	"github.com/sagernet/tailscale/util/winutil"
 

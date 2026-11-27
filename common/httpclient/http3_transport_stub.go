@@ -5,8 +5,8 @@ package httpclient
 import (
 	"time"
 
-	"github.com/sagernet/sing-box/common/tls"
-	"github.com/sagernet/sing-box/option"
+	"github.com/pasadizo-net/pasadizo/common/tls"
+	"github.com/pasadizo-net/pasadizo/option"
 	E "github.com/sagernet/sing/common/exceptions"
 	N "github.com/sagernet/sing/common/network"
 )

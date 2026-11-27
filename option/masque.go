@@ -5,7 +5,7 @@ import (
 	"net/netip"
 	"reflect"
 
-	"github.com/sagernet/sing-box/schema"
+	"github.com/pasadizo-net/pasadizo/schema"
 	"github.com/sagernet/sing/common/auth"
 	"github.com/sagernet/sing/common/json"
 	"github.com/sagernet/sing/common/json/badjson"

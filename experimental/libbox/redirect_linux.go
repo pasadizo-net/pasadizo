@@ -10,8 +10,8 @@ import (
 	"runtime"
 	"sync"
 
-	"github.com/sagernet/sing-box/common/srs"
-	"github.com/sagernet/sing-box/log"
+	"github.com/pasadizo-net/pasadizo/common/srs"
+	"github.com/pasadizo-net/pasadizo/log"
 	"github.com/sagernet/sing-tun"
 	"github.com/sagernet/sing/common"
 	"github.com/sagernet/sing/common/control"
