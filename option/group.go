@@ -26,6 +26,7 @@ type LoadBalanceOutboundOptions struct {
 	Timeout                   badoption.Duration `json:"timeout,omitempty"`
 	FailureThreshold          uint16             `json:"failure_threshold,omitempty"`
 	FailureWindow             badoption.Duration `json:"failure_window,omitempty"`
+	FirstByteTimeout          badoption.Duration `json:"first_byte_timeout,omitempty"`
 	IdleTimeout               badoption.Duration `json:"idle_timeout,omitempty"`
 	InterruptExistConnections bool               `json:"interrupt_exist_connections,omitempty"`
 }
@@ -37,5 +38,6 @@ type FallbackOutboundOptions struct {
 	Timeout                   badoption.Duration `json:"timeout,omitempty"`
 	IdleTimeout               badoption.Duration `json:"idle_timeout,omitempty"`
 	RecoverAfter              uint16             `json:"recover_after,omitempty"`
+	Lazy                      []string           `json:"lazy,omitempty" reference:"outbound"`
 	InterruptExistConnections bool               `json:"interrupt_exist_connections,omitempty"`
 }

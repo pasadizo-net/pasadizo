@@ -42,6 +42,7 @@ func NewFallback(ctx context.Context, router adapter.Router, logger log.ContextL
 		idleTimeout:                  time.Duration(options.IdleTimeout),
 		interruptExternalConnections: options.InterruptExistConnections,
 		fallback:                     newFallbackStrategy(recoverAfter),
+		lazy:                         options.Lazy,
 	}
 	if len(outbound.tags) == 0 {
 		return nil, E.New("missing tags")
@@ -49,6 +50,14 @@ func NewFallback(ctx context.Context, router adapter.Router, logger log.ContextL
 	for i, tag := range outbound.tags {
 		if slices.Contains(outbound.tags[:i], tag) {
 			return nil, E.New("duplicate tag: ", tag)
+		}
+	}
+	for _, tag := range options.Lazy {
+		if !slices.Contains(outbound.tags, tag) {
+			return nil, E.New("lazy outbound is not a member: ", tag)
+		}
+		if tag == outbound.tags[0] {
+			return nil, E.New("the first outbound cannot be lazy: ", tag)
 		}
 	}
 	return outbound, nil
@@ -136,6 +145,11 @@ func (f *fallbackStrategy) selectOutbound(g *URLTestGroup, network string) (adap
 		}
 		if firstSupported == nil {
 			firstSupported = detour
+		}
+		if g.isDormant(detour.Tag()) {
+			// a lazy member that is not being tested: its history, if any,
+			// is from the last time it was needed
+			continue
 		}
 		realTag := RealTag(detour, network)
 		if realTag == "" || g.history.LoadURLTestHistory(realTag) == nil {

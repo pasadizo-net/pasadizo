@@ -55,6 +55,7 @@ type URLTest struct {
 	checkAccess                  sync.Mutex
 	interruptExternalConnections bool
 	fallback                     *fallbackStrategy
+	lazy                         []string
 	listeners                    healthListeners
 }
 
@@ -100,6 +101,7 @@ func (s *URLTest) Start(stage adapter.StartStage, scope *adapter.Scope) error {
 			return err
 		}
 		group.fallback = s.fallback
+		group.setLazy(s.lazy)
 		group.listeners = &s.listeners
 		s.group = group
 		if s.fallback != nil {
@@ -181,6 +183,7 @@ func (s *URLTest) PerformUpdateCheck() {
 	if s.group.performUpdateCheck(s.ctx, adapter.OutboundGroupEventReasonHistoryUpdate) {
 		s.group.history.NotifyUpdated()
 	}
+	s.group.wakeLazy()
 }
 
 func (s *URLTest) InterfaceUpdated(ctx context.Context) {
@@ -285,6 +288,11 @@ type URLTestGroup struct {
 	memberAvailable              map[string]bool
 	listeners                    *healthListeners
 	healthState                  string
+	testOutbounds                func(ctx context.Context, outbounds []adapter.Outbound, force bool) map[string]uint16
+	lazy                         map[string]bool
+	dormantAccess                sync.Mutex
+	dormant                      map[string]bool
+	waking                       atomic.Bool
 }
 
 func NewURLTestGroup(ctx context.Context, outboundManager adapter.OutboundManager, logger log.Logger, tag string, outbounds []adapter.Outbound, link string, interval time.Duration, tolerance uint16, timeout time.Duration, idleTimeout time.Duration, interruptExternalConnections bool) (*URLTestGroup, error) {
@@ -470,7 +478,7 @@ func (g *URLTestGroup) urlTest(ctx context.Context, force bool) (map[string]uint
 		g.checkAccess.Unlock()
 		close(done)
 	}()
-	result := urlTestOutbounds(ctx, g.outbound, g.history, g.logger, g.outbounds, g.link, g.interval, g.timeout, force)
+	result := g.testMembers(ctx, force)
 	if ctx.Err() == nil {
 		g.tested.Store(true)
 	}
@@ -736,6 +744,10 @@ func (g *URLTestGroup) notifyHealth(ctx context.Context, reason string) {
 		}
 	}
 	for _, detour := range g.outbounds {
+		if g.isDormant(detour.Tag()) {
+			// not tested, so neither available nor unavailable
+			continue
+		}
 		history := g.history.LoadURLTestHistory(RealTag(detour, N.NetworkTCP))
 		available := history != nil
 		if g.memberAvailable[detour.Tag()] == available {

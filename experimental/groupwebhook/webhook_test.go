@@ -2,9 +2,14 @@ package groupwebhook
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -176,4 +181,78 @@ func TestWebhookInvalidURL(t *testing.T) {
 	require.Error(t, err)
 	_, err = New(context.Background(), logger.NOP(), option.GroupWebhookOptions{URL: "ftp://127.0.0.1/"})
 	require.Error(t, err)
+}
+
+func TestWebhookSignsWithSecret(t *testing.T) {
+	t.Parallel()
+	type received struct {
+		timestamp string
+		signature string
+		body      []byte
+	}
+	requests := make(chan received, 1)
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		body, _ := io.ReadAll(request.Body)
+		requests <- received{request.Header.Get(TimestampHeader), request.Header.Get(SignatureHeader), body}
+	}))
+	t.Cleanup(server.Close)
+	webhook := startTestWebhook(t, option.GroupWebhookOptions{URL: server.URL, Secret: "s3cret"})
+	webhook.NotifyOutboundGroupEvent(testEvent())
+	select {
+	case request := <-requests:
+		require.NotEmpty(t, request.timestamp)
+		seconds, err := strconv.ParseInt(request.timestamp, 10, 64)
+		require.NoError(t, err)
+		require.InDelta(t, time.Now().Unix(), seconds, 5)
+		mac := hmac.New(sha256.New, []byte("s3cret"))
+		mac.Write([]byte(request.timestamp + "."))
+		mac.Write(request.body)
+		require.Equal(t, "sha256="+hex.EncodeToString(mac.Sum(nil)), request.signature)
+		require.NotEqual(t, Sign("other", request.timestamp, request.body), request.signature)
+	case <-time.After(5 * time.Second):
+		t.Fatal("no request")
+	}
+}
+
+func TestWebhookWithoutSecretSendsNoSignature(t *testing.T) {
+	t.Parallel()
+	headers := make(chan http.Header, 1)
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		headers <- request.Header
+	}))
+	t.Cleanup(server.Close)
+	webhook := startTestWebhook(t, option.GroupWebhookOptions{URL: server.URL})
+	webhook.NotifyOutboundGroupEvent(testEvent())
+	select {
+	case header := <-headers:
+		require.Empty(t, header.Get(TimestampHeader))
+		require.Empty(t, header.Get(SignatureHeader))
+	case <-time.After(5 * time.Second):
+		t.Fatal("no request")
+	}
+}
+
+func TestWebhookDoesNotFollowRedirects(t *testing.T) {
+	t.Parallel()
+	var followed atomic.Int32
+	target := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		followed.Add(1)
+	}))
+	t.Cleanup(target.Close)
+	redirected := make(chan struct{}, 4)
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		redirected <- struct{}{}
+		http.Redirect(writer, request, target.URL, http.StatusTemporaryRedirect)
+	}))
+	t.Cleanup(server.Close)
+	headers := badoption.HTTPHeader{"X-Token": {"token"}}
+	webhook := startTestWebhook(t, option.GroupWebhookOptions{URL: server.URL, Headers: headers, Secret: "s3cret", MaxAttempts: 1})
+	webhook.NotifyOutboundGroupEvent(testEvent())
+	select {
+	case <-redirected:
+	case <-time.After(5 * time.Second):
+		t.Fatal("no request")
+	}
+	time.Sleep(200 * time.Millisecond)
+	require.Zero(t, followed.Load(), "the redirect was followed")
 }

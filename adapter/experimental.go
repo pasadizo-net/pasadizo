@@ -173,6 +173,17 @@ type ConnectionFailureReporter interface {
 	ReportConnectionFailure(network string, member Outbound, destination M.Socksaddr, err error)
 }
 
+// FirstByteWatcher is a ConnectionFailureReporter that also counts, as a
+// failed connection of a member, a TCP connection that was opened and written
+// to but got no byte back within FirstByteTimeout. A proxy protocol that
+// opens a stream without a round trip to its server (Hysteria2, TUIC) never
+// fails a dial on a dead path, so this is the only failure such a member
+// shows between two URL tests. Zero disables it.
+type FirstByteWatcher interface {
+	ConnectionFailureReporter
+	FirstByteTimeout() time.Duration
+}
+
 type URLTestGroup interface {
 	OutboundGroup
 	URLTest(ctx context.Context) (map[string]uint16, error)

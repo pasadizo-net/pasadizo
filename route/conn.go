@@ -150,6 +150,7 @@ func (m *ConnectionManager) NewConnection(ctx context.Context, this N.Dialer, co
 		m.logger.ErrorContext(ctx, err)
 		return
 	}
+	remoteConn = m.watchFirstByte(metadata, remoteConn)
 	if metadata.FairShare != nil {
 		conn = metadata.FairShare.NewConn(conn, metadata.Source.Addr)
 	} else if !metadata.TLSFragment && !metadata.TLSRecordFragment && metadata.TLSSpoof == "" {
@@ -351,12 +352,7 @@ func (m *ConnectionManager) reportConnectionFailure(metadata adapter.InboundCont
 	if len(chain) == 0 {
 		return
 	}
-	destinationIndex := -1
-	for i, it := range chain {
-		if _, isDestinationGroup := it.(adapter.DestinationOutboundGroup); isDestinationGroup {
-			destinationIndex = i
-		}
-	}
+	destinationIndex := lastDestinationGroup(chain)
 	urlTestGroups := common.FilterIsInstance(chain[destinationIndex+1:], func(it adapter.Outbound) (adapter.URLTestGroup, bool) {
 		group, isURLTestGroup := it.(adapter.URLTestGroup)
 		return group, isURLTestGroup

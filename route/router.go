@@ -40,6 +40,7 @@ type Router struct {
 	network                      adapter.NetworkManager
 	httpClientManager            adapter.HTTPClientManager
 	rules                        []adapter.Rule
+	reloadedRules                atomic.Pointer[[]adapter.Rule]
 	needFindProcess              bool
 	ruleSetNeedFindProcess       atomic.Bool
 	ruleSetNeedFindProcessAccess sync.Mutex
@@ -113,7 +114,11 @@ func (r *Router) Initialize(rules []option.Rule, ruleSets []option.RuleSet) erro
 }
 
 func (r *Router) ValidateRuleActions() error {
-	for i, rule := range r.rules {
+	return r.validateRuleActions(r.rules)
+}
+
+func (r *Router) validateRuleActions(rules []adapter.Rule) error {
+	for i, rule := range rules {
 		var outboundTag, serverTag string
 		switch action := rule.Action().(type) {
 		case *R.RuleActionRoute:
@@ -144,6 +149,7 @@ func (r *Router) Start(stage adapter.StartStage, scope *adapter.Scope) error {
 		for _, ruleSet := range r.ruleSets {
 			scope.Add(ruleSet.Close)
 		}
+		scope.Add(r.closeReloadedRules)
 		if r.needFindNeighbor {
 			if r.platformInterface != nil && r.platformInterface.UsePlatformNeighborResolver() {
 				monitor.Start("initialize neighbor resolver")
@@ -274,7 +280,7 @@ func (r *Router) RuleSet(tag string) (adapter.RuleSet, bool) {
 }
 
 func (r *Router) Rules() []adapter.Rule {
-	return r.rules
+	return r.currentRules()
 }
 
 func (r *Router) AppendTracker(tracker adapter.ConnectionTracker) {

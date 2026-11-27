@@ -3,6 +3,7 @@ package route
 import (
 	"context"
 	"slices"
+	"sync"
 	"sync/atomic"
 
 	"github.com/pasadizo-net/pasadizo/adapter"
@@ -20,6 +21,7 @@ var _ adapter.LifecycleService = (*ReferenceManager)(nil)
 type ReferenceManager struct {
 	ctx                    context.Context
 	logger                 log.ContextLogger
+	rulesAccess            sync.Mutex
 	rules                  []option.Rule
 	dnsRules               []option.DNSRule
 	staticOutbounds        []string
@@ -161,14 +163,17 @@ func (m *ReferenceManager) update() {
 
 	transportQueue := slices.Clone(m.staticTransports)
 	outboundQueue := slices.Clone(m.staticOutbounds)
-	if !collectDNSRuleReferences(m.dnsRules, mode, &outboundQueue, &transportQueue) {
+	m.rulesAccess.Lock()
+	rules, dnsRules := m.rules, m.dnsRules
+	m.rulesAccess.Unlock()
+	if !collectDNSRuleReferences(dnsRules, mode, &outboundQueue, &transportQueue) {
 		defaultTransport := transportManager.Default()
 		if defaultTransport != nil {
 			transportQueue = append(transportQueue, defaultTransport.Tag())
 		}
 	}
 	transportQueue = append(transportQueue, networkManager.DefaultOptions().DomainResolver)
-	if !collectRuleReferences(m.rules, mode, &outboundQueue, &transportQueue) {
+	if !collectRuleReferences(rules, mode, &outboundQueue, &transportQueue) {
 		defaultOutbound := outboundManager.Default()
 		if defaultOutbound != nil {
 			outboundQueue = append(outboundQueue, defaultOutbound.Tag())
