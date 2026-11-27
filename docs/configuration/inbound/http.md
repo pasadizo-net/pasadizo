@@ -14,6 +14,7 @@
       "password": "admin"
     }
   ],
+  "auth_exempt_source_ip_cidr": [],
   "tls": {},
   "set_system_proxy": false,
 
@@ -46,6 +47,16 @@ TLS configuration, see [TLS](/configuration/shared/tls/#inbound).
 #### users
 
 HTTP users.
+
+No authentication if empty.
+
+#### auth_exempt_source_ip_cidr
+
+!!! question "Since sing-box 1.15.0"
+
+Source address prefixes whose connections need no credentials, for example `["10.0.0.0/8", "127.0.0.0/8"]`. Every other source must authenticate as one of `users`.
+
+The prefixes match the address of the connection, never an address from a forwarding header such as `X-Forwarded-For`, which a client can set.
 
 No authentication required if empty.
 

@@ -56,6 +56,7 @@ func NewInbound(ctx context.Context, router adapter.Router, logger log.ContextLo
 		logger:  logger,
 		server: http.NewServer(http.ServerOptions{
 			Authenticator: auth.NewAuthenticator(options.Users),
+			AuthExempt:    options.AuthExemptSourceIPCIDR,
 			Logger:        logger,
 			HTTP1:         serveHTTP1,
 			HTTP2:         serveHTTP2,

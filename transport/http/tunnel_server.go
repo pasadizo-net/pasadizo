@@ -25,8 +25,13 @@ type TunnelRequest interface {
 	Reject(statusCode int, header http.Header)
 }
 
-func (s *Server) authenticate(ctx context.Context, request *http.Request, headerName string) (context.Context, error) {
+// authenticate checks the credentials in headerName. source is the address of
+// the connection, never one from a forwarding header, which a client can set.
+func (s *Server) authenticate(ctx context.Context, request *http.Request, headerName string, source M.Socksaddr) (context.Context, error) {
 	if s.authenticator == nil {
+		return ctx, nil
+	}
+	if s.authExempt(source) {
 		return ctx, nil
 	}
 	username, password, valid := badhttp.ParseBasicAuth(request.Header.Get(headerName))

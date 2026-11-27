@@ -6,6 +6,7 @@ import (
 	"math"
 	"net"
 	"net/http"
+	"net/netip"
 	"slices"
 	"time"
 
@@ -39,16 +40,19 @@ type Handler interface {
 
 type ServerOptions struct {
 	Authenticator *auth.Authenticator
-	Logger        logger.ContextLogger
-	HTTP1         bool
-	HTTP2         bool
-	HTTP2Options  option.HTTP2Options
-	UDP           bool
-	Tunnels       map[string]TunnelHandler
+	// AuthExempt are the source prefixes that need no credentials.
+	AuthExempt   []netip.Prefix
+	Logger       logger.ContextLogger
+	HTTP1        bool
+	HTTP2        bool
+	HTTP2Options option.HTTP2Options
+	UDP          bool
+	Tunnels      map[string]TunnelHandler
 }
 
 type Server struct {
 	authenticator *auth.Authenticator
+	authExemptSet []netip.Prefix
 	logger        logger.ContextLogger
 	http1         bool
 	http2Server   *http2.Server
@@ -59,6 +63,7 @@ type Server struct {
 func NewServer(options ServerOptions) *Server {
 	server := &Server{
 		authenticator: options.Authenticator,
+		authExemptSet: options.AuthExempt,
 		logger:        options.Logger,
 		http1:         options.HTTP1,
 		udp:           options.UDP,
@@ -151,4 +156,17 @@ func (s *Server) finishConnection(ctx context.Context, conn net.Conn, source M.S
 	if onClose != nil {
 		onClose(err)
 	}
+}
+
+func (s *Server) authExempt(source M.Socksaddr) bool {
+	if !source.IsIP() {
+		return false
+	}
+	address := source.Addr.Unmap()
+	for _, prefix := range s.authExemptSet {
+		if prefix.Contains(address) {
+			return true
+		}
+	}
+	return false
 }
