@@ -1,11 +1,20 @@
 # yaml-language-server: $schema=https://goreleaser.com/static/schema.json
 # GoReleaser v2 configuration of Pasadizo. .github/workflows/pasadizo-release.yml
 # runs it on a tag like v1.15.0-alpha.14-pasadizo.2. The build tags and the
-# linker flags come from upstream's release/DEFAULT_BUILD_TAGS_OTHERS and
-# release/LDFLAGS through the environment (PASADIZO_TAGS, PASADIZO_LDFLAGS), so
-# they never drift from upstream. Try it locally with:
+# linker flags come from upstream's release/DEFAULT_BUILD_TAGS_OTHERS,
+# release/DEFAULT_BUILD_TAGS and release/LDFLAGS through the environment
+# (PASADIZO_TAGS, PASADIZO_TAGS_LINUX, PASADIZO_LDFLAGS), so they never drift
+# from upstream.
+#
+# The Linux binaries also have the NaiveProxy outbound, built as upstream's
+# purego variant: still static, it loads libcronet.so from the directory of the
+# executable, and the Linux archives carry that library from
+# sagernet/cronet-go at .github/CRONET_GO_VERSION, which the release workflow
+# puts in .cronet/linux_<arch>/. The deb, rpm, AUR and Homebrew packages do not
+# carry it, so NaiveProxy works only from the archives. Try it locally with:
 #
 #   PASADIZO_TAGS="$(cat release/DEFAULT_BUILD_TAGS_OTHERS)" \
+#   PASADIZO_TAGS_LINUX="$(cat release/DEFAULT_BUILD_TAGS),with_purego" \
 #   PASADIZO_LDFLAGS="$(cat release/LDFLAGS)" \
 #   goreleaser release --snapshot --clean --skip=publish
 version: 2
@@ -20,23 +29,37 @@ builds:
       - CGO_ENABLED=0
     flags:
       - -trimpath
-      - -tags={{ .Env.PASADIZO_TAGS }}
+      - -tags={{ .Env.PASADIZO_TAGS_LINUX }}
     ldflags:
       - -X github.com/pasadizo-net/pasadizo/constant.Version={{ .Version }}
       - "{{ .Env.PASADIZO_LDFLAGS }}"
       - -s -w -buildid=
     goos:
       - linux
-      - darwin
     goarch:
       - amd64
       - arm64
       - arm
     goarm:
       - "7"
-    ignore:
-      - goos: darwin
-        goarch: arm
+    mod_timestamp: "{{ .CommitTimestamp }}"
+  - id: pasadizo-darwin
+    main: ./cmd/pasadizo
+    binary: pasadizo
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+      - -tags={{ .Env.PASADIZO_TAGS }}
+    ldflags:
+      - -X github.com/pasadizo-net/pasadizo/constant.Version={{ .Version }}
+      - "{{ .Env.PASADIZO_LDFLAGS }}"
+      - -s -w -buildid=
+    goos:
+      - darwin
+    goarch:
+      - amd64
+      - arm64
     mod_timestamp: "{{ .CommitTimestamp }}"
 
 archives:
@@ -54,6 +77,18 @@ archives:
         dst: systemd/pasadizo.service
       - src: .github/pasadizo/packaging/pasadizo@.service
         dst: systemd/pasadizo@.service
+      - src: ".cronet/linux_{{ .Arch }}/libcronet.so"
+        strip_parent: true
+  - id: pasadizo-darwin
+    ids: [pasadizo-darwin]
+    formats: [tar.gz]
+    name_template: "{{ .ProjectName }}-{{ .Version }}-{{ .Os }}-{{ .Arch }}"
+    files:
+      - LICENSE
+      - src: .github/README.md
+        dst: README.md
+      - src: .github/pasadizo/packaging/config.json
+        dst: config.json
 
 checksum:
   name_template: checksums.txt
@@ -95,7 +130,7 @@ nfpms:
 
 homebrew_casks:
   - name: pasadizo
-    ids: [pasadizo]
+    ids: [pasadizo, pasadizo-darwin]
     binaries: [pasadizo]
     homepage: https://github.com/pasadizo-net/pasadizo
     description: Proxy platform derived from sing-box, for a home gateway on a lossy, filtered line

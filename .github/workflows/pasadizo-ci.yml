@@ -33,6 +33,12 @@ jobs:
               -ldflags "$(cat release/LDFLAGS) -s -w -buildid=" \
               -o /dev/null ./cmd/pasadizo
           done
+      - name: Build (linux amd64, release tags with NaiveProxy over purego)
+        run: |
+          GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -trimpath \
+            -tags "$(cat release/DEFAULT_BUILD_TAGS),with_purego" \
+            -ldflags "$(cat release/LDFLAGS) -s -w -buildid=" \
+            -o /dev/null ./cmd/pasadizo
       - name: Vet and test the packages Pasadizo changes
         run: |
           pkgs=(. ./adapter/... ./common/fairshare/... ./common/trafficcontrol/... ./constant/...
