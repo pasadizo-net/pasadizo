@@ -77,6 +77,9 @@ jobs:
         if: steps.fetch.outputs.skip != 'true' && steps.merge.outputs.conflict != 'true'
         continue-on-error: true
         run: |
+          # without pipefail the exit status of a pipe into tee is tee's, and
+          # a failed check or test would count as passed
+          set -o pipefail
           # an upstream sync moves the sing-quic pin; the replace must follow it
           .github/pasadizo/check-sing-quic.sh 2>&1 | tee test.log
           tags="$(cat release/DEFAULT_BUILD_TAGS_OTHERS)"
@@ -88,7 +91,7 @@ jobs:
             ./experimental/clashapi/... ./experimental/groupwebhook/... ./include/... ./option/...
             ./protocol/group/... ./protocol/hysteria2/... ./protocol/masque/... ./route/...
             ./transport/http/... ./transport/masque/...)
-          go test -race -count=1 -tags "$tags" -ldflags "$(cat release/LDFLAGS)" "${pkgs[@]}" 2>&1 | tee test.log
+          go test -race -count=1 -tags "$tags" -ldflags "$(cat release/LDFLAGS)" "${pkgs[@]}" 2>&1 | tee -a test.log
       - name: Open the pull request
         if: steps.fetch.outputs.skip != 'true' && steps.merge.outputs.conflict != 'true'
         run: |
