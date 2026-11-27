@@ -48,4 +48,21 @@ func TestRulesReloadable(t *testing.T) {
 	require.ErrorContains(t, RulesReloadable([]option.Rule{domain}, []option.Rule{domain, process}, nil, nil), "process")
 	require.ErrorContains(t, RulesReloadable([]option.Rule{process}, []option.Rule{domain}, nil, nil), "process")
 	require.ErrorContains(t, RulesReloadable(nil, nil, []option.DNSRule{dnsDomain}, []option.DNSRule{dnsWIFI}), "Wi-Fi")
+
+	// a Clash mode can be dropped, or used by more rules, but not added
+	global := defaultRule(func(rule *option.DefaultRule) { rule.ClashMode = "Global" })
+	dnsGlobal := defaultDNSRule(func(rule *option.DefaultDNSRule) { rule.ClashMode = "Global" })
+	dnsDirect := defaultDNSRule(func(rule *option.DefaultDNSRule) { rule.ClashMode = "Direct" })
+	require.NoError(t, RulesReloadable([]option.Rule{global}, []option.Rule{domain}, nil, nil))
+	require.NoError(t, RulesReloadable([]option.Rule{global}, []option.Rule{global}, nil, []option.DNSRule{dnsGlobal}))
+	require.ErrorContains(t, RulesReloadable([]option.Rule{domain}, []option.Rule{global}, nil, nil), "Global")
+	require.ErrorContains(t, RulesReloadable([]option.Rule{global}, []option.Rule{global}, nil, []option.DNSRule{dnsDirect}), "Direct")
+
+	// a rule with fair_share owns its limiter
+	shared := defaultRule(func(rule *option.DefaultRule) {
+		rule.DomainSuffix = []string{"example.org"}
+		rule.RuleAction.RouteOptions.FairShare = &option.FairShareOptions{DownMbps: 100}
+	})
+	require.ErrorContains(t, RulesReloadable([]option.Rule{shared}, []option.Rule{shared, domain}, nil, nil), "fair_share")
+	require.ErrorContains(t, RulesReloadable([]option.Rule{domain}, []option.Rule{shared}, nil, nil), "fair_share")
 }
