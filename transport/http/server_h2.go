@@ -96,7 +96,7 @@ func (h *httpHandler) ServeHTTP(writer http.ResponseWriter, request *http.Reques
 	}
 	tunnelHandler := h.server.tunnels[protocol]
 	if tunnelHandler != nil {
-		tunnelCtx, authErr := h.server.authenticate(ctx, request, "Authorization")
+		tunnelCtx, authErr := h.server.authenticate(ctx, request, "Authorization", connectionSource)
 		if authErr != nil {
 			h.server.logger.ErrorContext(ctx, E.Cause(authErr, "process connection from ", connectionSource))
 			writer.Header().Set("WWW-Authenticate", `Basic realm="`+realm+`", charset="UTF-8"`)
@@ -111,7 +111,7 @@ func (h *httpHandler) ServeHTTP(writer http.ResponseWriter, request *http.Reques
 		writer.WriteHeader(http.StatusNotFound)
 		return
 	}
-	proxyCtx, authErr := h.server.authenticate(ctx, request, "Proxy-Authorization")
+	proxyCtx, authErr := h.server.authenticate(ctx, request, "Proxy-Authorization", connectionSource)
 	if authErr != nil {
 		h.server.logger.ErrorContext(ctx, E.Cause(authErr, "process connection from ", connectionSource))
 		writer.Header().Set("Proxy-Authenticate", `Basic realm="`+realm+`", charset="UTF-8"`)

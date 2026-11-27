@@ -5363,6 +5363,9 @@
         "headers": {
           "$ref": "#/$defs/HTTPHeader"
         },
+        "secret": {
+          "type": "string"
+        },
         "http_client": {
           "$ref": "#/$defs/HTTPClientReference"
         },
@@ -6628,6 +6631,19 @@
               "items": {
                 "$ref": "#/$defs/User"
               }
+            },
+            "auth_exempt_source_ip_cidr": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/IPPrefix"
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/IPPrefix"
+                  }
+                }
+              ]
             },
             "domain_resolver": {
               "$ref": "#/$defs/DomainResolver"
@@ -11930,6 +11946,13 @@
               "minimum": 0,
               "maximum": 65535
             },
+            "lazy": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "x-tag-reference": "outbound"
+              }
+            },
             "interrupt_exist_connections": {
               "type": "boolean"
             }
@@ -12819,6 +12842,9 @@
               "maximum": 65535
             },
             "failure_window": {
+              "$ref": "#/$defs/Duration"
+            },
+            "first_byte_timeout": {
               "$ref": "#/$defs/Duration"
             },
             "idle_timeout": {

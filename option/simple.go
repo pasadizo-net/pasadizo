@@ -2,6 +2,7 @@ package option
 
 import (
 	"context"
+	"net/netip"
 	"reflect"
 
 	"github.com/pasadizo-net/pasadizo/schema"
@@ -27,10 +28,11 @@ type HTTPMixedInboundOptions struct {
 
 type _HTTPInboundOptions struct {
 	ListenOptions
-	Users          []auth.User             `json:"users,omitempty"`
-	DomainResolver *DomainResolveOptions   `json:"domain_resolver,omitempty"`
-	SetSystemProxy bool                    `json:"set_system_proxy,omitempty"`
-	Version        badoption.Listable[int] `json:"version,omitempty" enum:"1,2,3"`
+	Users                  []auth.User                      `json:"users,omitempty"`
+	AuthExemptSourceIPCIDR badoption.Listable[netip.Prefix] `json:"auth_exempt_source_ip_cidr,omitempty"`
+	DomainResolver         *DomainResolveOptions            `json:"domain_resolver,omitempty"`
+	SetSystemProxy         bool                             `json:"set_system_proxy,omitempty"`
+	Version                badoption.Listable[int]          `json:"version,omitempty" enum:"1,2,3"`
 	InboundTLSOptionsContainer
 	HTTP2Options HTTP2Options `json:"-"`
 	HTTP3Options QUICOptions  `json:"-"`

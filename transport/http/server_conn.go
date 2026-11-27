@@ -70,7 +70,7 @@ func (c *serverConn) serveRequest() (requestResult, error) {
 	}
 	tunnelProtocol, tunnelHandler := c.server.upgradeTunnelHandler(request)
 	if tunnelHandler != nil {
-		tunnelCtx, tunnelAuthErr := c.server.authenticate(c.ctx, request, "Authorization")
+		tunnelCtx, tunnelAuthErr := c.server.authenticate(c.ctx, request, "Authorization", c.source)
 		if tunnelAuthErr != nil {
 			c.server.logger.ErrorContext(c.ctx, E.Cause(tunnelAuthErr, "process connection from ", c.source))
 			return c.reject(request, requestKeepAlive(request), http.StatusUnauthorized, nil, tunnelAuthErr)
@@ -80,7 +80,7 @@ func (c *serverConn) serveRequest() (requestResult, error) {
 	if c.handler == nil {
 		return c.reject(request, requestKeepAlive(request), http.StatusNotFound, nil, E.New("unexpected request: ", request.Method, " ", request.URL))
 	}
-	ctx, authErr := c.server.authenticate(c.ctx, request, "Proxy-Authorization")
+	ctx, authErr := c.server.authenticate(c.ctx, request, "Proxy-Authorization", c.source)
 	if authErr != nil {
 		c.server.logger.ErrorContext(c.ctx, E.Cause(authErr, "process connection from ", c.source))
 		return c.reject(request, requestKeepAlive(request), http.StatusProxyAuthRequired, nil, authErr)
