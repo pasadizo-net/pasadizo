@@ -28,17 +28,22 @@ func RegisterLoadBalance(registry *outbound.Registry) {
 }
 
 var (
-	_ adapter.OutboundGroup            = (*LoadBalance)(nil)
-	_ adapter.DestinationOutboundGroup = (*LoadBalance)(nil)
-	_ adapter.URLTestGroup             = (*LoadBalance)(nil)
-	_ adapter.InterfaceUpdateListener  = (*LoadBalance)(nil)
-	_ adapter.Referrer                 = (*LoadBalance)(nil)
+	_ adapter.OutboundGroup             = (*LoadBalance)(nil)
+	_ adapter.DestinationOutboundGroup  = (*LoadBalance)(nil)
+	_ adapter.URLTestGroup              = (*LoadBalance)(nil)
+	_ adapter.InterfaceUpdateListener   = (*LoadBalance)(nil)
+	_ adapter.Referrer                  = (*LoadBalance)(nil)
+	_ adapter.ConnectionFailureReporter = (*LoadBalance)(nil)
 )
+
+const defaultLoadBalanceFailureWindow = 10 * time.Second
 
 // LoadBalance spreads connections over its healthy members. Health comes from
 // the URL test history that urltest groups use: a member is healthy when its
 // last test succeeded. A failed connection does not change it, since it may
-// fail for its destination alone.
+// fail for its destination alone, unless the circuit breaker is set: a member
+// that fails connections to failureThreshold different destinations within
+// failureWindow is unhealthy until its next successful test.
 type LoadBalance struct {
 	outbound.Adapter
 	ctx                          context.Context
@@ -48,6 +53,7 @@ type LoadBalance struct {
 	strategy                     string
 	link                         string
 	interval                     time.Duration
+	timeout                      time.Duration
 	idleTimeout                  time.Duration
 	interruptExternalConnections bool
 	group                        *URLTestGroup
@@ -55,7 +61,11 @@ type LoadBalance struct {
 	updateAccess                 sync.Mutex
 	healthyTCP                   string
 	healthyUDP                   string
+	availableTCP                 bool
+	availableUDP                 bool
 	counter                      atomic.Uint64
+	listeners                    healthListeners
+	breaker                      *failureBreaker
 }
 
 func NewLoadBalance(ctx context.Context, router adapter.Router, logger log.ContextLogger, tag string, options option.LoadBalanceOutboundOptions) (adapter.Outbound, error) {
@@ -68,8 +78,18 @@ func NewLoadBalance(ctx context.Context, router adapter.Router, logger log.Conte
 		strategy:                     options.Strategy,
 		link:                         options.URL,
 		interval:                     time.Duration(options.Interval),
+		timeout:                      time.Duration(options.Timeout),
 		idleTimeout:                  time.Duration(options.IdleTimeout),
 		interruptExternalConnections: options.InterruptExistConnections,
+	}
+	if options.FailureThreshold > 0 {
+		failureWindow := time.Duration(options.FailureWindow)
+		if failureWindow == 0 {
+			failureWindow = defaultLoadBalanceFailureWindow
+		}
+		outbound.breaker = newFailureBreaker(int(options.FailureThreshold), failureWindow)
+	} else if options.FailureWindow != 0 {
+		return nil, E.New("failure_window needs failure_threshold")
 	}
 	if len(outbound.tags) == 0 {
 		return nil, E.New("missing tags")
@@ -100,17 +120,22 @@ func (s *LoadBalance) Start(stage adapter.StartStage, scope *adapter.Scope) erro
 			}
 			outbounds = append(outbounds, detour)
 		}
-		group, err := NewURLTestGroup(s.ctx, s.outbound, s.logger, s.Tag(), outbounds, s.link, s.interval, 0, s.idleTimeout, s.interruptExternalConnections)
+		group, err := NewURLTestGroup(s.ctx, s.outbound, s.logger, s.Tag(), outbounds, s.link, s.interval, 0, s.timeout, s.idleTimeout, s.interruptExternalConnections)
 		if err != nil {
 			return err
 		}
 		group.updateCheck = s.performUpdateCheck
+		group.listeners = &s.listeners
 		s.group = group
 	case adapter.StartStateStarted:
 		s.group.PostStart()
 		scope.Add(s.group.Close)
 	}
 	return nil
+}
+
+func (s *LoadBalance) addHealthListener(listener func()) {
+	s.listeners.add(listener)
 }
 
 func (s *LoadBalance) All() []string {
@@ -206,6 +231,7 @@ func (s *LoadBalance) DialContext(ctx context.Context, network string, destinati
 		return s.group.interruptGroup.NewConn(conn, interrupt.IsExternalConnectionFromContext(ctx)), nil
 	}
 	s.logger.ErrorContext(ctx, err)
+	s.ReportConnectionFailure(N.NetworkName(network), outbound, destination, err)
 	return nil, err
 }
 
@@ -220,28 +246,55 @@ func (s *LoadBalance) ListenPacket(ctx context.Context, destination M.Socksaddr)
 		return s.group.interruptGroup.NewPacketConn(conn, interrupt.IsExternalConnectionFromContext(ctx)), nil
 	}
 	s.logger.ErrorContext(ctx, err)
+	s.ReportConnectionFailure(N.NetworkUDP, outbound, destination, err)
 	return nil, err
+}
+
+// ReportConnectionFailure feeds the circuit breaker. When the member has now
+// failed for enough different destinations, its test history is dropped, so
+// that it is unhealthy until its next successful test, and the group selects
+// again at once.
+func (s *LoadBalance) ReportConnectionFailure(network string, member adapter.Outbound, destination M.Socksaddr, err error) {
+	if s.breaker == nil || s.group == nil || E.IsClosedOrCanceled(err) {
+		return
+	}
+	if !s.breaker.fail(member.Tag(), destination, time.Now()) {
+		return
+	}
+	s.logger.Warn("outbound ", member.Tag(), " failed for ", s.breaker.threshold, " destinations in ", s.breaker.window, ", marked unavailable")
+	if realTag := RealTag(member, network); realTag != "" {
+		s.group.history.DeleteURLTestHistory(realTag)
+	}
+	s.PerformUpdateCheck()
 }
 
 // candidates returns the healthy members that support the network. Before the
 // first test round completes every member counts as healthy, and when no
 // member is healthy all members that support the network are returned.
 func (s *LoadBalance) candidates(network string) []adapter.Outbound {
+	supported, healthy := s.members(network)
+	if len(healthy) == 0 {
+		return supported
+	}
+	return healthy
+}
+
+// members returns the members that support the network and those of them
+// that are healthy. Before the first test round completes every member that
+// the circuit breaker has not tripped counts as healthy.
+func (s *LoadBalance) members(network string) (supported []adapter.Outbound, healthy []adapter.Outbound) {
 	tested := s.group.tested.Load()
-	var supported, healthy []adapter.Outbound
 	for _, detour := range s.group.outbounds {
 		if !common.Contains(detour.Network(), network) {
 			continue
 		}
 		supported = append(supported, detour)
-		if !tested || s.group.history.LoadURLTestHistory(RealTag(detour, network)) != nil {
+		if s.group.history.LoadURLTestHistory(RealTag(detour, network)) != nil ||
+			(!tested && (s.breaker == nil || !s.breaker.isTripped(detour.Tag()))) {
 			healthy = append(healthy, detour)
 		}
 	}
-	if len(healthy) == 0 {
-		return supported
-	}
-	return healthy
+	return
 }
 
 func (s *LoadBalance) pick(candidates []adapter.Outbound, destination M.Socksaddr) adapter.Outbound {
@@ -329,17 +382,36 @@ func (s *LoadBalance) healthySignature(network string) string {
 // performUpdateCheck interrupts the group's connections when the set of
 // healthy members changed, since that moves destinations between members.
 // A load balance group has no single selected member, so it reports only
-// member health changes to the group event listener.
+// member health changes to the group event listener. The groups that hold
+// this one as a member hear when its health changed.
 func (s *LoadBalance) performUpdateCheck(ctx context.Context, reason string) bool {
+	updated, healthChanged := s.updateHealthy(ctx, reason)
+	if healthChanged {
+		s.listeners.notify()
+	}
+	return updated
+}
+
+func (s *LoadBalance) hasHealthy(network string) bool {
+	_, healthy := s.members(network)
+	return len(healthy) > 0
+}
+
+func (s *LoadBalance) updateHealthy(ctx context.Context, reason string) (bool, bool) {
 	s.updateAccess.Lock()
 	defer s.updateAccess.Unlock()
 	if s.group.eventListener != nil {
 		s.group.notifyHealth(ctx, reason)
 	}
+	availableTCP := s.hasHealthy(N.NetworkTCP)
+	availableUDP := s.hasHealthy(N.NetworkUDP)
+	availableChanged := availableTCP != s.availableTCP || availableUDP != s.availableUDP
+	s.availableTCP = availableTCP
+	s.availableUDP = availableUDP
 	healthyTCP := s.healthySignature(N.NetworkTCP)
 	healthyUDP := s.healthySignature(N.NetworkUDP)
 	if healthyTCP == s.healthyTCP && healthyUDP == s.healthyUDP {
-		return false
+		return false, availableChanged
 	}
 	initialized := s.healthyTCP != "" || s.healthyUDP != ""
 	s.healthyTCP = healthyTCP
@@ -347,5 +419,5 @@ func (s *LoadBalance) performUpdateCheck(ctx context.Context, reason string) boo
 	if initialized {
 		s.group.interruptGroup.Interrupt(s.interruptExternalConnections)
 	}
-	return true
+	return true, true
 }

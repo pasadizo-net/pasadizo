@@ -165,6 +165,14 @@ type DestinationOutboundGroup interface {
 	SelectedFor(network string, destination M.Socksaddr) Outbound
 }
 
+// ConnectionFailureReporter is an OutboundGroup that wants to learn which of
+// its members failed a connection to which destination, for example to mark
+// a member unhealthy when it fails for several destinations.
+type ConnectionFailureReporter interface {
+	OutboundGroup
+	ReportConnectionFailure(network string, member Outbound, destination M.Socksaddr, err error)
+}
+
 type URLTestGroup interface {
 	OutboundGroup
 	URLTest(ctx context.Context) (map[string]uint16, error)

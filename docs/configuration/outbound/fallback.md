@@ -18,6 +18,7 @@ icon: material/new-box
   ],
   "url": "",
   "interval": "",
+  "timeout": "",
   "idle_timeout": "",
   "recover_after": 3,
   "interrupt_exist_connections": false
@@ -29,6 +30,10 @@ Uses the first outbound in the list whose last test succeeded.
 When the selected outbound fails a test or a connection, the next available outbound in the list is selected.
 
 An outbound earlier in the list is selected again only after it has passed `recover_after` consecutive tests.
+
+Until the first test round has finished, the first outbound in the list is selected.
+
+When an outbound in the list is a group (`urltest`, `fallback` or `loadbalance`) and its health changes between the tests of this group, for example when its own tests or its circuit breaker find all its outbounds unavailable, the outbound is selected again at once.
 
 ### Fields
 
@@ -45,6 +50,14 @@ The URL to test. `https://www.gstatic.com/generate_204` will be used if empty.
 #### interval
 
 The test interval. `3m` will be used if empty.
+
+#### timeout
+
+!!! question "Since sing-box 1.15.0"
+
+The timeout of one URL test. `15s` will be used if empty.
+
+A test that has no answer within it fails. A short timeout finds a dead path sooner: through a QUIC proxy whose packets are dropped, a test otherwise waits the full `15s`.
 
 #### idle_timeout
 
