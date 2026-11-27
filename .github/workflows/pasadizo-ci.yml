@@ -17,8 +17,8 @@ jobs:
   build-test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-go@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
           go-version-file: go.mod
       - name: The tree is renamed to Pasadizo
@@ -43,7 +43,7 @@ jobs:
           go vet -tags "$tags" "${pkgs[@]}"
           # transport/masque needs -checklinkname=0 from release/LDFLAGS to link
           go test -race -count=1 -tags "$tags" -ldflags "$(cat release/LDFLAGS)" "${pkgs[@]}"
-      - uses: goreleaser/goreleaser-action@v7
+      - uses: goreleaser/goreleaser-action@a4f02ab5355a589de60d917a659ce617ed19b3de # v7.3.0
         with:
           distribution: goreleaser
           version: "~> v2"

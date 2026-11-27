@@ -10,6 +10,11 @@
 # package needs the secret AUR_KEY, the private half of an SSH key registered
 # on the AUR account of the package's maintainer. Without a secret, its step is
 # skipped and the rest of the release still runs.
+#
+# The two secrets are set only on the steps that need them: the check below and
+# GoReleaser. The other actions never see them, and every action is pinned to a
+# commit SHA (Renovate updates the pin and its version comment), so a moved tag
+# upstream cannot run new code beside the keys.
 name: pasadizo-release
 
 on:
@@ -27,18 +32,18 @@ jobs:
   release:
     needs: ci
     runs-on: ubuntu-latest
-    env:
-      HOMEBREW_TAP_KEY: ${{ secrets.HOMEBREW_TAP_KEY }}
-      AUR_KEY: ${{ secrets.AUR_KEY }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-      - uses: actions/setup-go@v7
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
           go-version-file: go.mod
       - name: Read upstream's build tags and linker flags
         id: flags
+        env:
+          HOMEBREW_TAP_KEY: ${{ secrets.HOMEBREW_TAP_KEY }}
+          AUR_KEY: ${{ secrets.AUR_KEY }}
         run: |
           {
             echo "PASADIZO_TAGS=$(cat release/DEFAULT_BUILD_TAGS_OTHERS)"
@@ -56,13 +61,15 @@ jobs:
           if [ "${#skip[@]}" -gt 0 ]; then
             echo "skip=--skip=$(IFS=,; echo "${skip[*]}")" >>"$GITHUB_OUTPUT"
           fi
-      - uses: goreleaser/goreleaser-action@v7
+      - uses: goreleaser/goreleaser-action@a4f02ab5355a589de60d917a659ce617ed19b3de # v7.3.0
         with:
           distribution: goreleaser
           version: "~> v2"
           args: release --clean --release-notes .github/RELEASE_NOTES.md ${{ steps.flags.outputs.skip }}
         env:
           GITHUB_TOKEN: ${{ github.token }}
-      - uses: actions/attest@v4
+          HOMEBREW_TAP_KEY: ${{ secrets.HOMEBREW_TAP_KEY }}
+          AUR_KEY: ${{ secrets.AUR_KEY }}
+      - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
           subject-checksums: ./dist/checksums.txt
