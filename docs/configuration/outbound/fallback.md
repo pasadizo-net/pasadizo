@@ -21,6 +21,7 @@ icon: material/new-box
   "timeout": "",
   "idle_timeout": "",
   "recover_after": 3,
+  "lazy": [],
   "interrupt_exist_connections": false
 }
 ```
@@ -68,6 +69,14 @@ The idle timeout. `30m` will be used if empty.
 The number of consecutive successful tests an outbound earlier in the list must pass before it replaces the selected outbound. `3` will be used if empty.
 
 When the selected outbound fails, an outbound that has passed this many tests is preferred over one that has not.
+
+#### lazy
+
+Outbounds of the list that are tested only while they are needed: when no outbound before them is available, or while one of them is the selected outbound. The first outbound cannot be lazy.
+
+Use it for a backup on a metered or slow link, such as mobile data or a satellite: while the outbounds before it work, it is never tested, so it costs no traffic, and it is never selected. When the last outbound before it fails a test, it is tested in the same round; when that outbound fails a connection between two rounds, a round starts at once.
+
+The health of a lazy outbound that is not being tested is not reported to the [group webhook](/configuration/experimental/group-webhook/).
 
 #### interrupt_exist_connections
 

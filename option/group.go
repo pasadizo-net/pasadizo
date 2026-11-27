@@ -37,5 +37,6 @@ type FallbackOutboundOptions struct {
 	Timeout                   badoption.Duration `json:"timeout,omitempty"`
 	IdleTimeout               badoption.Duration `json:"idle_timeout,omitempty"`
 	RecoverAfter              uint16             `json:"recover_after,omitempty"`
+	Lazy                      []string           `json:"lazy,omitempty" reference:"outbound"`
 	InterruptExistConnections bool               `json:"interrupt_exist_connections,omitempty"`
 }
