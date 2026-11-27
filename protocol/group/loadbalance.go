@@ -255,7 +255,7 @@ func (s *LoadBalance) ListenPacket(ctx context.Context, destination M.Socksaddr)
 // that it is unhealthy until its next successful test, and the group selects
 // again at once.
 func (s *LoadBalance) ReportConnectionFailure(network string, member adapter.Outbound, destination M.Socksaddr, err error) {
-	if s.breaker == nil || s.group == nil || E.IsClosedOrCanceled(err) {
+	if s.breaker == nil || s.group == nil || E.IsClosedOrCanceled(err) || adapter.IsDestinationError(err) {
 		return
 	}
 	if !s.breaker.fail(member.Tag(), destination, time.Now()) {

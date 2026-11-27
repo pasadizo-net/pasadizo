@@ -220,7 +220,7 @@ func (s *URLTest) DialContext(ctx context.Context, network string, destination M
 		return s.group.interruptGroup.NewConn(conn, interrupt.IsExternalConnectionFromContext(ctx)), nil
 	}
 	s.logger.ErrorContext(ctx, err)
-	if !E.IsClosedOrCanceled(err) {
+	if !E.IsClosedOrCanceled(err) && !adapter.IsDestinationError(err) {
 		s.group.history.DeleteURLTestHistory(RealTag(outbound, N.NetworkName(network)))
 		s.PerformUpdateCheck()
 	}
@@ -241,7 +241,7 @@ func (s *URLTest) ListenPacket(ctx context.Context, destination M.Socksaddr) (ne
 		return s.group.interruptGroup.NewPacketConn(conn, interrupt.IsExternalConnectionFromContext(ctx)), nil
 	}
 	s.logger.ErrorContext(ctx, err)
-	if !E.IsClosedOrCanceled(err) {
+	if !E.IsClosedOrCanceled(err) && !adapter.IsDestinationError(err) {
 		s.group.history.DeleteURLTestHistory(RealTag(outbound, N.NetworkUDP))
 		s.PerformUpdateCheck()
 	}

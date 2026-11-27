@@ -319,7 +319,9 @@ func (m *ConnectionManager) NewPacketConnection(ctx context.Context, this N.Dial
 // directly, and the destination group itself gets the failure with its
 // member and the destination, to decide on the member's health.
 func (m *ConnectionManager) reportConnectionFailure(metadata adapter.InboundContext, network string, err error) {
-	if E.IsClosedOrCanceled(err) {
+	// A destination error means the member reached its server: it says
+	// nothing about the member's health.
+	if E.IsClosedOrCanceled(err) || adapter.IsDestinationError(err) {
 		return
 	}
 	chain := metadata.OutboundChain
