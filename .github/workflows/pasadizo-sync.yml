@@ -77,6 +77,8 @@ jobs:
         if: steps.fetch.outputs.skip != 'true' && steps.merge.outputs.conflict != 'true'
         continue-on-error: true
         run: |
+          # an upstream sync moves the sing-quic pin; the replace must follow it
+          .github/pasadizo/check-sing-quic.sh 2>&1 | tee test.log
           tags="$(cat release/DEFAULT_BUILD_TAGS_OTHERS)"
           for arch in amd64 arm64; do
             GOOS=linux GOARCH=$arch CGO_ENABLED=0 go build -trimpath -tags "$tags" \

@@ -40,6 +40,10 @@ Pasadizo ("secret passage" in Spanish) is a proxy platform derived from [sing-bo
 
 Each feature is one commit on top of upstream, so it can be read, reverted or offered upstream on its own.
 
+## sing-quic
+
+Pasadizo builds with its own [sing-quic](https://github.com/pasadizo-net/sing-quic), upstream's library plus the changes Pasadizo needs in it (today: connection statistics of the Hysteria2 client). `go.mod` takes it with a `replace` of `github.com/sagernet/sing-quic`, so no import path changes. The `require` line keeps the commit sing-box pins; `.github/pasadizo/check-sing-quic.sh`, which CI runs, fails when the replaced commit does not contain it, because the build would then pass on older QUIC code than sing-box asks for. After an upstream sync moves the pin: merge the sync pull request of `pasadizo-net/sing-quic`, then move the `replace` to the new commit of its `main` (the script's header has the command).
+
 ## Releases
 
 Tags look like `v1.15.0-alpha.14-pasadizo.2`: the upstream version, then Pasadizo's release number. GoReleaser (`.goreleaser.yaml`, run by `.github/workflows/pasadizo-release.yml`) builds each release with upstream's release build tags and linker flags (`release/DEFAULT_BUILD_TAGS_OTHERS`, `release/LDFLAGS`). A release has:
