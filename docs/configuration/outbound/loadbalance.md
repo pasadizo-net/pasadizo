@@ -22,6 +22,7 @@ icon: material/new-box
   "timeout": "",
   "failure_threshold": 0,
   "failure_window": "",
+  "first_byte_timeout": "",
   "idle_timeout": "",
   "interrupt_exist_connections": false
 }
@@ -70,13 +71,21 @@ A test that has no answer within it fails. A short timeout finds a dead path soo
 
 The circuit breaker: an outbound whose connections fail for this many different destinations within `failure_window` is unhealthy at once, as if its URL test had failed, until its next successful test. Destinations count by host, so one destination that fails many times counts once and does not make an outbound unhealthy.
 
-A failure is an error when the connection is opened, not one after it is established. Disabled if empty; `3` is a good start.
+A failure is an error when the connection is opened, not one after it is established, unless `first_byte_timeout` is set. Disabled if empty; `3` is a good start.
 
 #### failure_window
 
 !!! question "Since sing-box 1.15.0"
 
 The time window of `failure_threshold`. `10s` will be used if empty. Needs `failure_threshold`.
+
+#### first_byte_timeout
+
+A TCP connection through an outbound that was written to and got no byte back within this time also counts as a failed connection of that outbound for `failure_threshold`. Disabled if empty; `5s` is a good start. Needs `failure_threshold`.
+
+Set it when the outbounds use a protocol that opens a connection without a round trip to its server, such as Hysteria2 or TUIC: on a dead path such an outbound never fails when a connection is opened, so without this the circuit breaker never sees it, and only the next URL test finds it.
+
+The slow connection itself is not closed. The time counts from the first write, so a protocol in which the server speaks first is not affected, and one destination that is slow to answer counts once.
 
 #### idle_timeout
 

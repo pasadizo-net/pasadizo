@@ -35,6 +35,7 @@ var (
 	_ adapter.InterfaceUpdateListener   = (*LoadBalance)(nil)
 	_ adapter.Referrer                  = (*LoadBalance)(nil)
 	_ adapter.ConnectionFailureReporter = (*LoadBalance)(nil)
+	_ adapter.FirstByteWatcher          = (*LoadBalance)(nil)
 )
 
 const defaultLoadBalanceFailureWindow = 10 * time.Second
@@ -68,6 +69,7 @@ type LoadBalance struct {
 	counter                      atomic.Uint64
 	listeners                    healthListeners
 	breaker                      *failureBreaker
+	firstByteTimeout             time.Duration
 }
 
 func NewLoadBalance(ctx context.Context, router adapter.Router, logger log.ContextLogger, tag string, options option.LoadBalanceOutboundOptions) (adapter.Outbound, error) {
@@ -91,8 +93,14 @@ func NewLoadBalance(ctx context.Context, router adapter.Router, logger log.Conte
 			failureWindow = defaultLoadBalanceFailureWindow
 		}
 		outbound.breaker = newFailureBreaker(int(options.FailureThreshold), failureWindow)
+		outbound.firstByteTimeout = time.Duration(options.FirstByteTimeout)
 	} else if options.FailureWindow != 0 {
 		return nil, E.New("failure_window needs failure_threshold")
+	} else if options.FirstByteTimeout != 0 {
+		return nil, E.New("first_byte_timeout needs failure_threshold")
+	}
+	if outbound.firstByteTimeout < 0 {
+		return nil, E.New("invalid first_byte_timeout")
 	}
 	if len(outbound.tags) == 0 {
 		return nil, E.New("missing tags")
@@ -251,6 +259,12 @@ func (s *LoadBalance) ListenPacket(ctx context.Context, destination M.Socksaddr)
 	s.logger.ErrorContext(ctx, err)
 	s.ReportConnectionFailure(N.NetworkUDP, outbound, destination, err)
 	return nil, err
+}
+
+// FirstByteTimeout is how long a connection through a member may wait for its
+// first byte before it counts as a failure of that member; zero when unset.
+func (s *LoadBalance) FirstByteTimeout() time.Duration {
+	return s.firstByteTimeout
 }
 
 // ReportConnectionFailure feeds the circuit breaker. When the member has now

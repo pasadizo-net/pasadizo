@@ -14,6 +14,7 @@ import (
 	C "github.com/pasadizo-net/pasadizo/constant"
 	"github.com/pasadizo-net/pasadizo/option"
 	"github.com/sagernet/sing/common"
+	"github.com/sagernet/sing/common/json/badoption"
 	M "github.com/sagernet/sing/common/metadata"
 	N "github.com/sagernet/sing/common/network"
 
@@ -248,4 +249,28 @@ func TestNewLoadBalanceOptions(t *testing.T) {
 	require.Equal(t, C.LoadBalanceStrategyConsistentHashing, outbound.(*LoadBalance).strategy)
 	require.Equal(t, C.TypeLoadBalance, outbound.Type())
 	require.Equal(t, "LoadBalance", C.ProxyDisplayName(outbound.Type()))
+}
+
+func TestNewLoadBalanceFirstByteTimeout(t *testing.T) {
+	t.Parallel()
+	detour, err := NewLoadBalance(context.Background(), nil, nil, "balance", option.LoadBalanceOutboundOptions{
+		Outbounds:        []string{"a", "b"},
+		FailureThreshold: 3,
+		FirstByteTimeout: badoption.Duration(5 * time.Second),
+	})
+	require.NoError(t, err)
+	require.Equal(t, 5*time.Second, detour.(adapter.FirstByteWatcher).FirstByteTimeout())
+
+	detour, err = NewLoadBalance(context.Background(), nil, nil, "balance", option.LoadBalanceOutboundOptions{
+		Outbounds:        []string{"a", "b"},
+		FailureThreshold: 3,
+	})
+	require.NoError(t, err)
+	require.Zero(t, detour.(adapter.FirstByteWatcher).FirstByteTimeout())
+
+	_, err = NewLoadBalance(context.Background(), nil, nil, "balance", option.LoadBalanceOutboundOptions{
+		Outbounds:        []string{"a", "b"},
+		FirstByteTimeout: badoption.Duration(5 * time.Second),
+	})
+	require.ErrorContains(t, err, "needs failure_threshold")
 }
