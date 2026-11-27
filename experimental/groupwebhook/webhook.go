@@ -3,9 +3,13 @@ package groupwebhook
 import (
 	"bytes"
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"time"
 
 	"github.com/pasadizo-net/pasadizo/adapter"
@@ -22,6 +26,12 @@ const (
 	defaultMaxAttempts = 3
 	defaultQueueSize   = 64
 	maxRetryDelay      = 30 * time.Second
+
+	// TimestampHeader carries the Unix time of the request in seconds, and
+	// SignatureHeader the HMAC-SHA256 of that time, a dot and the body, with
+	// the configured secret as the key, in hexadecimal after "sha256=".
+	TimestampHeader = "X-Pasadizo-Timestamp"
+	SignatureHeader = "X-Pasadizo-Signature"
 )
 
 var (
@@ -98,7 +108,14 @@ func (w *Webhook) Start(stage adapter.StartStage, scope *adapter.Scope) error {
 		return E.Cause(err, "create group webhook http client")
 	}
 	w.transport = transport
-	w.httpClient = &http.Client{Transport: transport}
+	w.httpClient = &http.Client{
+		Transport: transport,
+		// A redirect is not followed: Go would send the configured headers,
+		// which may carry a token, and the signature to the new host.
+		CheckRedirect: func(*http.Request, []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
 	w.ctx, w.cancel = context.WithCancel(w.ctx)
 	go w.loop()
 	scope.Add(w.close)
@@ -189,6 +206,11 @@ func (w *Webhook) post(content []byte) (retry bool, err error) {
 	if request.Header.Get("User-Agent") == "" {
 		request.Header.Set("User-Agent", "sing-box/"+C.Version)
 	}
+	if w.options.Secret != "" {
+		timestamp := strconv.FormatInt(time.Now().Unix(), 10)
+		request.Header.Set(TimestampHeader, timestamp)
+		request.Header.Set(SignatureHeader, Sign(w.options.Secret, timestamp, content))
+	}
 	response, err := w.httpClient.Do(request)
 	if err != nil {
 		return true, err
@@ -207,4 +229,16 @@ func (w *Webhook) post(content []byte) (retry bool, err error) {
 	default:
 		return false, err
 	}
+}
+
+// Sign returns the value of SignatureHeader for a request body sent at
+// timestamp, the value of TimestampHeader. A receiver computes it again with
+// the shared secret, compares in constant time, and refuses a timestamp that
+// is too old, so that a recorded request cannot be sent again later.
+func Sign(secret string, timestamp string, content []byte) string {
+	mac := hmac.New(sha256.New, []byte(secret))
+	mac.Write([]byte(timestamp))
+	mac.Write([]byte{'.'})
+	mac.Write(content)
+	return "sha256=" + hex.EncodeToString(mac.Sum(nil))
 }

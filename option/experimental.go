@@ -62,6 +62,7 @@ type ClashAPIOptions struct {
 type GroupWebhookOptions struct {
 	URL         string               `json:"url"`
 	Headers     badoption.HTTPHeader `json:"headers,omitempty"`
+	Secret      string               `json:"secret,omitempty"`
 	HTTPClient  *HTTPClientOptions   `json:"http_client,omitempty"`
 	Timeout     badoption.Duration   `json:"timeout,omitempty"`
 	MaxAttempts uint32               `json:"max_attempts,omitempty"`

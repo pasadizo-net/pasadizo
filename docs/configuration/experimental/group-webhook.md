@@ -15,6 +15,7 @@ never blocks routing.
 {
   "url": "http://127.0.0.1:9000/hook",
   "headers": {},
+  "secret": "",
   "http_client": "", // or {}
   "timeout": "",
   "max_attempts": 0,
@@ -33,6 +34,24 @@ The HTTP or HTTPS URL that receives the events.
 #### headers
 
 HTTP headers to send with each request, for example `Authorization`.
+
+#### secret
+
+A shared secret that signs each request, so that the receiver can tell that the event comes from
+this instance and was not changed on the way.
+
+When set, each request has two more headers:
+
+| Header                 | Value                                                                                          |
+|------------------------|------------------------------------------------------------------------------------------------|
+| `X-Pasadizo-Timestamp` | The Unix time of the request, in seconds.                                                      |
+| `X-Pasadizo-Signature` | `sha256=` and the HMAC-SHA256, in hexadecimal, of the timestamp, a `.` and the request body, with the secret as the key. |
+
+The receiver computes the signature again, compares it in constant time, and refuses a timestamp
+that is more than a few minutes old.
+
+Redirects are never followed, with or without a secret: the headers and the signature are sent
+only to the configured URL.
 
 #### http_client
 
