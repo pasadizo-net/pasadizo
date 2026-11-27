@@ -5247,6 +5247,113 @@
       },
       "additionalProperties": false
     },
+    "FairShareOptions": {
+      "type": "object",
+      "properties": {
+        "up_mbps": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "down_mbps": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        }
+      },
+      "additionalProperties": false
+    },
+    "GostICMPOptions": {
+      "type": "object",
+      "properties": {
+        "keep_alive_period": {
+          "$ref": "#/$defs/Duration"
+        },
+        "idle_timeout": {
+          "$ref": "#/$defs/Duration"
+        }
+      },
+      "additionalProperties": false
+    },
+    "GostKCPOptions": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "crypt": {
+          "type": "string"
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "normal",
+            "fast",
+            "fast2",
+            "fast3"
+          ]
+        },
+        "mtu": {
+          "type": "integer"
+        },
+        "send_window": {
+          "type": "integer"
+        },
+        "receive_window": {
+          "type": "integer"
+        },
+        "data_shard": {
+          "type": "integer"
+        },
+        "parity_shard": {
+          "type": "integer"
+        },
+        "socket_buffer": {
+          "type": "integer"
+        },
+        "no_compression": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "GostMuxOptions": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "type": "integer",
+          "enum": [
+            1,
+            2
+          ]
+        },
+        "keep_alive_disabled": {
+          "type": "boolean"
+        },
+        "keep_alive_interval": {
+          "$ref": "#/$defs/Duration"
+        },
+        "keep_alive_timeout": {
+          "$ref": "#/$defs/Duration"
+        },
+        "max_frame_size": {
+          "type": "integer"
+        },
+        "max_receive_buffer": {
+          "type": "integer"
+        },
+        "max_stream_buffer": {
+          "type": "integer"
+        },
+        "open_timeout": {
+          "$ref": "#/$defs/Duration"
+        },
+        "stall_timeout": {
+          "$ref": "#/$defs/Duration"
+        }
+      },
+      "additionalProperties": false
+    },
     "GroupWebhookOptions": {
       "type": "object",
       "properties": {
@@ -5268,22 +5375,6 @@
           "maximum": 4294967295
         },
         "queue_size": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 4294967295
-        }
-      },
-      "additionalProperties": false
-    },
-    "FairShareOptions": {
-      "type": "object",
-      "properties": {
-        "up_mbps": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 4294967295
-        },
-        "down_mbps": {
           "type": "integer",
           "minimum": 0,
           "maximum": 4294967295
@@ -9313,6 +9404,9 @@
         },
         "password": {
           "type": "string"
+        },
+        "sources": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false
@@ -11807,6 +11901,203 @@
           "type": "object",
           "properties": {
             "type": {
+              "const": "fallback"
+            },
+            "tag": {
+              "type": "string"
+            },
+            "outbounds": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "x-tag-reference": "outbound"
+              }
+            },
+            "url": {
+              "type": "string"
+            },
+            "interval": {
+              "$ref": "#/$defs/Duration"
+            },
+            "timeout": {
+              "$ref": "#/$defs/Duration"
+            },
+            "idle_timeout": {
+              "$ref": "#/$defs/Duration"
+            },
+            "recover_after": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535
+            },
+            "interrupt_exist_connections": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "gost"
+            },
+            "tag": {
+              "type": "string"
+            },
+            "detour": {
+              "type": "string",
+              "x-tag-reference": "outbound"
+            },
+            "bind_interface": {
+              "type": "string"
+            },
+            "inet4_bind_address": {
+              "$ref": "#/$defs/IPAddress"
+            },
+            "inet6_bind_address": {
+              "$ref": "#/$defs/IPAddress"
+            },
+            "bind_address_no_port": {
+              "type": "boolean"
+            },
+            "protect_path": {
+              "type": "string"
+            },
+            "routing_mark": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 4294967295
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "reuse_addr": {
+              "type": "boolean"
+            },
+            "netns": {
+              "type": "string",
+              "x-tag-reference": "network_namespace"
+            },
+            "connect_timeout": {
+              "$ref": "#/$defs/Duration"
+            },
+            "tcp_fast_open": {
+              "type": "boolean"
+            },
+            "tcp_multi_path": {
+              "type": "boolean"
+            },
+            "disable_tcp_keep_alive": {
+              "type": "boolean"
+            },
+            "tcp_keep_alive": {
+              "$ref": "#/$defs/Duration"
+            },
+            "tcp_keep_alive_interval": {
+              "$ref": "#/$defs/Duration"
+            },
+            "udp_fragment": {
+              "type": "boolean"
+            },
+            "domain_resolver": {
+              "$ref": "#/$defs/DomainResolver"
+            },
+            "network_strategy": {
+              "type": "string",
+              "enum": [
+                "default",
+                "fallback",
+                "hybrid"
+              ]
+            },
+            "network_type": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/InterfaceType"
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/InterfaceType"
+                  }
+                }
+              ]
+            },
+            "fallback_network_type": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/InterfaceType"
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/InterfaceType"
+                  }
+                }
+              ]
+            },
+            "fallback_delay": {
+              "$ref": "#/$defs/Duration"
+            },
+            "server": {
+              "type": "string"
+            },
+            "server_port": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535
+            },
+            "username": {
+              "type": "string"
+            },
+            "password": {
+              "type": "string"
+            },
+            "transport": {
+              "type": "string",
+              "enum": [
+                "tcp",
+                "kcp",
+                "icmp"
+              ]
+            },
+            "connector": {
+              "type": "string",
+              "enum": [
+                "http",
+                "relay"
+              ]
+            },
+            "tls": {
+              "$ref": "#/$defs/OutboundTLSOptions"
+            },
+            "mux": {
+              "$ref": "#/$defs/GostMuxOptions"
+            },
+            "kcp": {
+              "$ref": "#/$defs/GostKCPOptions"
+            },
+            "icmp": {
+              "$ref": "#/$defs/GostICMPOptions"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
               "const": "http"
             },
             "tag": {
@@ -12428,6 +12719,9 @@
                 }
               ]
             },
+            "connections": {
+              "type": "integer"
+            },
             "tls": {
               "$ref": "#/$defs/OutboundTLSOptions"
             },
@@ -12484,6 +12778,54 @@
             },
             "realm": {
               "$ref": "#/$defs/Hysteria2Realm"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "loadbalance"
+            },
+            "tag": {
+              "type": "string"
+            },
+            "outbounds": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "x-tag-reference": "outbound"
+              }
+            },
+            "strategy": {
+              "type": "string"
+            },
+            "url": {
+              "type": "string"
+            },
+            "interval": {
+              "$ref": "#/$defs/Duration"
+            },
+            "timeout": {
+              "$ref": "#/$defs/Duration"
+            },
+            "failure_threshold": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535
+            },
+            "failure_window": {
+              "$ref": "#/$defs/Duration"
+            },
+            "idle_timeout": {
+              "$ref": "#/$defs/Duration"
+            },
+            "interrupt_exist_connections": {
+              "type": "boolean"
             }
           },
           "required": [
@@ -14479,6 +14821,9 @@
               "type": "integer",
               "minimum": 0,
               "maximum": 65535
+            },
+            "timeout": {
+              "$ref": "#/$defs/Duration"
             },
             "idle_timeout": {
               "$ref": "#/$defs/Duration"

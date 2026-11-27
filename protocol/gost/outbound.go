@@ -1,6 +1,6 @@
-// Package gost implements an outbound for a gost v3 node whose service is an
-// mtls (TLS + smux) or mtcp (smux) listener with an http handler: the
-// "mtls" dialer and "http" connector of a gost chain node.
+// Package gost implements an outbound for a gost v3 node: the client side of a
+// gost service whose listener is mtls (TLS + smux), mtcp (smux), kcp (KCP +
+// smux) or icmp (QUIC over ICMP echo), and whose handler is http or relay.
 package gost
 
 import (
@@ -42,30 +42,46 @@ const (
 	defaultStallTimeout = 30 * time.Second
 )
 
+const (
+	transportTCP  = "tcp"
+	transportKCP  = "kcp"
+	transportICMP = "icmp"
+
+	connectorHTTP  = "http"
+	connectorRelay = "relay"
+)
+
 type Outbound struct {
 	outbound.Adapter
 	logger       logger.ContextLogger
 	dialer       N.Dialer
 	serverAddr   M.Socksaddr
+	username     string
+	password     string
 	authHeader   string
+	relay        bool
+	newSession   func(ctx context.Context) (session, error)
 	muxConfig    *smux.Config
 	openTimeout  time.Duration
 	stallTimeout time.Duration
 
 	access  sync.Mutex
-	session *session
+	session session
 	pending *pendingSession
 	closed  bool
 }
 
-type session struct {
-	*smux.Session
-	conn net.Conn
+// session is one connection to the node that carries a stream per proxied
+// connection: an smux session over TCP or KCP, or a QUIC connection over ICMP.
+type session interface {
+	OpenStream() (net.Conn, error)
+	IsClosed() bool
+	Close() error
 }
 
 type pendingSession struct {
 	done    chan struct{}
-	session *session
+	session session
 	err     error
 }
 
@@ -73,14 +89,28 @@ func NewOutbound(ctx context.Context, router adapter.Router, logger log.ContextL
 	if options.Server == "" {
 		return nil, E.New("missing server")
 	}
-	if options.ServerPort == 0 {
+	transport := options.Transport
+	if transport == "" {
+		transport = transportTCP
+	}
+	// gost's icmp listener has no port.
+	if options.ServerPort == 0 && transport != transportICMP {
 		return nil, E.New("missing server_port")
+	}
+	connector := options.Connector
+	if connector == "" {
+		connector = connectorHTTP
+	}
+	switch connector {
+	case connectorHTTP, connectorRelay:
+	default:
+		return nil, E.New("unknown connector: ", connector)
 	}
 	outboundDialer, err := dialer.New(ctx, options.DialerOptions, options.ServerIsDomain())
 	if err != nil {
 		return nil, err
 	}
-	if options.TLS != nil && options.TLS.Enabled {
+	if transport == transportTCP && options.TLS != nil && options.TLS.Enabled {
 		tlsConfig, err := tls.NewClientWithOptions(tls.ClientOptions{
 			Context:       ctx,
 			Logger:        logger,
@@ -95,6 +125,9 @@ func NewOutbound(ctx context.Context, router adapter.Router, logger log.ContextL
 	muxOptions := common.PtrValueOrDefault(options.Mux)
 	muxConfig := smux.DefaultConfig()
 	muxConfig.Version = defaultMuxVersion
+	if transport == transportKCP {
+		applyKCPMuxDefaults(muxConfig)
+	}
 	if muxOptions.Version != 0 {
 		muxConfig.Version = muxOptions.Version
 	}
@@ -130,16 +163,33 @@ func NewOutbound(ctx context.Context, router adapter.Router, logger log.ContextL
 	if options.Username != "" || options.Password != "" {
 		authHeader = "Basic " + base64.StdEncoding.EncodeToString([]byte(options.Username+":"+options.Password))
 	}
-	return &Outbound{
+	h := &Outbound{
 		Adapter:      outbound.NewAdapterWithDialerOptions(C.TypeGost, tag, []string{N.NetworkTCP}, options.DialerOptions),
 		logger:       logger,
 		dialer:       outboundDialer,
 		serverAddr:   options.ServerOptions.Build(),
+		username:     options.Username,
+		password:     options.Password,
 		authHeader:   authHeader,
+		relay:        connector == connectorRelay,
 		muxConfig:    muxConfig,
 		openTimeout:  openTimeout,
 		stallTimeout: stallTimeout,
-	}, nil
+	}
+	switch transport {
+	case transportTCP:
+		h.newSession = h.newTCPSession
+	case transportKCP:
+		h.newSession, err = h.kcpSessionDialer(common.PtrValueOrDefault(options.KCP))
+	case transportICMP:
+		h.newSession, err = h.icmpSessionDialer(ctx, options)
+	default:
+		err = E.New("unknown transport: ", transport)
+	}
+	if err != nil {
+		return nil, err
+	}
+	return h, nil
 }
 
 func (h *Outbound) Start(stage adapter.StartStage, scope *adapter.Scope) error {
@@ -162,7 +212,12 @@ func (h *Outbound) DialContext(ctx context.Context, network string, destination 
 	if err != nil {
 		return nil, err
 	}
-	conn, err := h.connect(ctx, stream, destination)
+	var conn net.Conn
+	if h.relay {
+		conn, err = h.connectRelay(ctx, stream, destination)
+	} else {
+		conn, err = h.connect(ctx, stream, destination)
+	}
 	if err != nil {
 		stream.Close()
 		return nil, err
@@ -192,7 +247,7 @@ func (h *Outbound) reset(closed bool) {
 	}
 	h.access.Unlock()
 	if current != nil {
-		current.close()
+		current.Close()
 	}
 }
 
@@ -220,9 +275,9 @@ func (h *Outbound) openStream(ctx context.Context) (net.Conn, error) {
 	return nil, lastErr
 }
 
-func (h *Outbound) awaitStream(ctx context.Context, current *session) (net.Conn, error) {
+func (h *Outbound) awaitStream(ctx context.Context, current session) (net.Conn, error) {
 	type result struct {
-		stream *smux.Stream
+		stream net.Conn
 		err    error
 	}
 	done := make(chan result, 1)
@@ -251,7 +306,7 @@ func (h *Outbound) awaitStream(ctx context.Context, current *session) (net.Conn,
 
 // getSession returns the live session, or dials one. Concurrent callers share
 // one dial; each waits for it only as long as its own context allows.
-func (h *Outbound) getSession(ctx context.Context) (*session, error) {
+func (h *Outbound) getSession(ctx context.Context) (session, error) {
 	h.access.Lock()
 	if h.closed {
 		h.access.Unlock()
@@ -263,7 +318,7 @@ func (h *Outbound) getSession(ctx context.Context) (*session, error) {
 			h.access.Unlock()
 			return current, nil
 		}
-		h.session.close()
+		h.session.Close()
 		h.session = nil
 	}
 	pending := h.pending
@@ -290,7 +345,7 @@ func (h *Outbound) dialSession(ctx context.Context, pending *pendingSession) {
 	h.access.Lock()
 	h.pending = nil
 	if err == nil && h.closed {
-		current.close()
+		current.Close()
 		current, err = nil, net.ErrClosed
 	}
 	if err == nil {
@@ -304,7 +359,7 @@ func (h *Outbound) dialSession(ctx context.Context, pending *pendingSession) {
 	close(pending.done)
 }
 
-func (h *Outbound) newSession(ctx context.Context) (*session, error) {
+func (h *Outbound) newTCPSession(ctx context.Context) (session, error) {
 	conn, err := h.dialer.DialContext(ctx, N.NetworkTCP, h.serverAddr)
 	if err != nil {
 		return nil, err
@@ -315,27 +370,47 @@ func (h *Outbound) newSession(ctx context.Context) (*session, error) {
 		conn.Close()
 		return nil, ctx.Err()
 	}
+	return h.newMuxSession(conn)
+}
+
+// newMuxSession starts an smux client session over conn and owns conn from
+// then on.
+func (h *Outbound) newMuxSession(conn net.Conn) (session, error) {
 	guarded := &stallGuardConn{Conn: conn, timeout: h.stallTimeout}
 	muxSession, err := smux.Client(guarded, h.muxConfig)
 	if err != nil {
 		conn.Close()
 		return nil, err
 	}
-	return &session{Session: muxSession, conn: conn}, nil
+	return &smuxSession{Session: muxSession, conn: conn}, nil
 }
 
-func (h *Outbound) dropSession(current *session) {
+func (h *Outbound) dropSession(current session) {
 	h.access.Lock()
 	if h.session == current {
 		h.session = nil
 	}
 	h.access.Unlock()
-	current.close()
+	current.Close()
 }
 
-func (s *session) close() {
-	s.Session.Close()
+type smuxSession struct {
+	*smux.Session
+	conn net.Conn
+}
+
+func (s *smuxSession) OpenStream() (net.Conn, error) {
+	stream, err := s.Session.OpenStream()
+	if err != nil {
+		return nil, err
+	}
+	return stream, nil
+}
+
+func (s *smuxSession) Close() error {
+	err := s.Session.Close()
 	s.conn.Close()
+	return err
 }
 
 // connect sends the HTTP CONNECT request of gost's http connector over stream
