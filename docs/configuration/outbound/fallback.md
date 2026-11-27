@@ -72,7 +72,7 @@ When the selected outbound fails, an outbound that has passed this many tests is
 
 #### lazy
 
-Outbounds of the list that are tested only while they are needed: when no outbound before them is available, or while one of them is the selected outbound. The first outbound cannot be lazy.
+Outbounds of the list that are tested only while they are needed: when no outbound before them is available, or while one of them is the selected outbound. The first outbound cannot be lazy. Availability counts per network: when no outbound before a lazy one carries UDP, the lazy one is needed for UDP and is tested all the time.
 
 Use it for a backup on a metered or slow link, such as mobile data or a satellite: while the outbounds before it work, it is never tested, so it costs no traffic, and it is never selected. When the last outbound before it fails a test, it is tested in the same round; when that outbound fails a connection between two rounds, a round starts at once.
 
