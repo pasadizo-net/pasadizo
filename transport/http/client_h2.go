@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/pasadizo-net/pasadizo/adapter"
+	"github.com/pasadizo-net/pasadizo/common/concealedauth"
 	C "github.com/pasadizo-net/pasadizo/constant"
 	E "github.com/sagernet/sing/common/exceptions"
 	M "github.com/sagernet/sing/common/metadata"
@@ -19,6 +20,7 @@ import (
 
 type http2Session struct {
 	clientConn *http2ClientConn
+	exporter   concealedauth.Exporter
 	streams    int
 }
 
@@ -87,7 +89,7 @@ func (c *Client) dialHTTP2(ctx context.Context, offer *dialOffer) (*http2Session
 		return nil, nil, net.ErrClosed
 	}
 	clientConn.reserveNewRequest()
-	session := &http2Session{clientConn: clientConn, streams: 1}
+	session := &http2Session{clientConn: clientConn, exporter: connExporter(conn), streams: 1}
 	c.http2Sessions = append(c.http2Sessions, session)
 	return session, nil, nil
 }
@@ -102,11 +104,16 @@ func (c *Client) releaseHTTP2(session *http2Session, keepSession bool) {
 }
 
 func (c *Client) connectHTTP2(ctx context.Context, session *http2Session, destination M.Socksaddr) (net.Conn, error) {
+	authorization, err := c.authorizationFor(session.exporter, destination.String())
+	if err != nil {
+		c.releaseHTTP2(session, adapter.KeepSessionFromContext(ctx))
+		return nil, err
+	}
 	request := &http.Request{
 		Method: http.MethodConnect,
 		URL:    &url.URL{Host: destination.String()},
 		Host:   destination.String(),
-		Header: buildRequestHeader(c.headers, c.authorization, false),
+		Header: buildRequestHeader(c.headers, authorization, false),
 	}
 	streamConn, err := c.roundTripHTTP2(ctx, session, request, destination)
 	if err != nil {

@@ -1,13 +1,16 @@
 package http_test
 
 import (
+	"bufio"
 	"context"
+	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/netip"
 	"net/url"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -91,4 +94,34 @@ func TestHTTPAuthExemptSource(t *testing.T) {
 	require.NoError(t, err)
 	response.Body.Close()
 	require.Equal(t, http.StatusProxyAuthRequired, response.StatusCode)
+}
+
+// A rejected CONNECT closes the connection, so tunnel data a client sent
+// before the answer is never read as a request of its own (RFC 9931).
+func TestHTTPRejectedConnectClosesConnection(t *testing.T) {
+	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer target.Close()
+	proxy := startProxy(t, "10.0.0.0/8")
+	targetHost := strings.TrimPrefix(target.URL, "http://")
+	for _, smuggled := range []string{
+		"CONNECT " + targetHost + " HTTP/1.1\r\nHost: " + targetHost + "\r\n\r\n",
+		"GET /.well-known/masque/udp/127.0.0.1/53/ HTTP/1.1\r\nHost: " + proxy + "\r\nConnection: Upgrade\r\nUpgrade: connect-udp\r\n\r\n",
+	} {
+		conn, err := net.Dial("tcp", proxy)
+		require.NoError(t, err)
+		conn.SetDeadline(time.Now().Add(5 * time.Second))
+		_, err = io.WriteString(conn, smuggled+"GET "+target.URL+"/ HTTP/1.1\r\nHost: "+targetHost+"\r\nProxy-Authorization: Basic dXNlcjpwYXNz\r\n\r\n")
+		require.NoError(t, err)
+		reader := bufio.NewReader(conn)
+		response, err := http.ReadResponse(reader, nil)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusProxyAuthRequired, response.StatusCode)
+		require.True(t, response.Close)
+		io.Copy(io.Discard, response.Body)
+		_, err = reader.ReadByte()
+		require.ErrorIs(t, err, io.EOF)
+		conn.Close()
+	}
 }

@@ -8,7 +8,7 @@ icon: material/file-code
 
 ### sing-box 1.15
 
-* Go 1.26.11 - ~
+* Go 1.27.4 - ~
 
 ### sing-box 1.11
 

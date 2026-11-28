@@ -239,6 +239,12 @@ func (c *realityConnWrapper) ConnectionState() ConnectionState {
 	}
 }
 
+// ExportKeyingMaterial uses uTLS's own state, which ConnectionState drops.
+func (c *realityConnWrapper) ExportKeyingMaterial(label string, context []byte, length int) ([]byte, error) {
+	state := c.Conn.ConnectionState()
+	return state.ExportKeyingMaterial(label, context, length)
+}
+
 func (c *realityConnWrapper) Upstream() any {
 	return c.Conn
 }

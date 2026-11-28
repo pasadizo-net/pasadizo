@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/pasadizo-net/pasadizo/common/badhttp"
+	"github.com/pasadizo-net/pasadizo/common/concealedauth"
 	"github.com/pasadizo-net/pasadizo/transport/v2rayhttp"
 	"github.com/sagernet/sing/common/auth"
 	E "github.com/sagernet/sing/common/exceptions"
@@ -27,12 +28,27 @@ type TunnelRequest interface {
 
 // authenticate checks the credentials in headerName. source is the address of
 // the connection, never one from a forwarding header, which a client can set.
-func (s *Server) authenticate(ctx context.Context, request *http.Request, headerName string, source M.Socksaddr) (context.Context, error) {
-	if s.authenticator == nil {
+// exporter exports keying material from the connection's TLS session, and is
+// nil on a connection without TLS.
+func (s *Server) authenticate(ctx context.Context, request *http.Request, headerName string, source M.Socksaddr, exporter concealedauth.Exporter) (context.Context, error) {
+	if s.authenticator == nil && s.concealed == nil {
 		return ctx, nil
 	}
 	if s.authExempt(source) {
 		return ctx, nil
+	}
+	if s.concealed != nil {
+		credentials, isConcealed := concealedauth.ParseAuthorization(request.Header.Get(headerName))
+		if isConcealed {
+			username, err := s.authenticateConcealed(request, credentials, source, exporter)
+			if err != nil {
+				return nil, E.Cause(err, "concealed authentication failed")
+			}
+			return auth.ContextWithUser(ctx, username), nil
+		}
+		if s.authenticator == nil {
+			return nil, E.New("authentication failed: missing or malformed ", headerName)
+		}
 	}
 	username, password, valid := badhttp.ParseBasicAuth(request.Header.Get(headerName))
 	if !valid {
