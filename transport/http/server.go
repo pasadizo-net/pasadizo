@@ -6,6 +6,7 @@ import (
 	"math"
 	"net"
 	"net/http"
+	"net/http/httputil"
 	"net/netip"
 	"slices"
 	"time"
@@ -41,18 +42,21 @@ type Handler interface {
 type ServerOptions struct {
 	Authenticator *auth.Authenticator
 	// AuthExempt are the source prefixes that need no credentials.
-	AuthExempt   []netip.Prefix
-	Logger       logger.ContextLogger
-	HTTP1        bool
-	HTTP2        bool
-	HTTP2Options option.HTTP2Options
-	UDP          bool
-	Tunnels      map[string]TunnelHandler
+	AuthExempt    []netip.Prefix
+	ConcealedAuth *ConcealedAuthOptions
+	Logger        logger.ContextLogger
+	HTTP1         bool
+	HTTP2         bool
+	HTTP2Options  option.HTTP2Options
+	UDP           bool
+	Tunnels       map[string]TunnelHandler
 }
 
 type Server struct {
 	authenticator *auth.Authenticator
 	authExemptSet []netip.Prefix
+	concealed     *ConcealedAuthOptions
+	fallbackProxy *httputil.ReverseProxy
 	logger        logger.ContextLogger
 	http1         bool
 	http2Server   *http2.Server
@@ -64,10 +68,14 @@ func NewServer(options ServerOptions) *Server {
 	server := &Server{
 		authenticator: options.Authenticator,
 		authExemptSet: options.AuthExempt,
+		concealed:     options.ConcealedAuth,
 		logger:        options.Logger,
 		http1:         options.HTTP1,
 		udp:           options.UDP,
 		tunnels:       options.Tunnels,
+	}
+	if server.concealed != nil && server.concealed.Fallback.IsValid() {
+		server.fallbackProxy = newFallbackProxy(server.concealed.Fallback)
 	}
 	if options.HTTP2 {
 		server.http2Server = &http2.Server{

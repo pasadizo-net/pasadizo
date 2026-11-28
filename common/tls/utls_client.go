@@ -148,6 +148,12 @@ func (c *utlsConnWrapper) ConnectionState() tls.ConnectionState {
 	}
 }
 
+// ExportKeyingMaterial uses uTLS's own state, which ConnectionState drops.
+func (c *utlsConnWrapper) ExportKeyingMaterial(label string, context []byte, length int) ([]byte, error) {
+	state := c.Conn.ConnectionState()
+	return state.ExportKeyingMaterial(label, context, length)
+}
+
 func (c *utlsConnWrapper) HandshakeContext(ctx context.Context) error {
 	err := c.UConn.HandshakeContext(ctx)
 	if echErr, ok := errors.AsType[*utls.ECHRejectionError](err); ok {

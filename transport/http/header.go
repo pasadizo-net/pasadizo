@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/pasadizo-net/pasadizo/common/concealedauth"
 	M "github.com/sagernet/sing/common/metadata"
 
 	"golang.org/x/net/http/httpguts"
@@ -35,6 +36,8 @@ func removeHopByHopHeaders(header http.Header) {
 	header.Del("TE")
 	header.Del("Transfer-Encoding")
 	header.Del("Upgrade")
+	// A client must not hand a backend its own exporter output (RFC 9729, Section 6.2).
+	header.Del(concealedauth.ExportHeader)
 }
 
 func requestKeepAlive(request *http.Request) bool {

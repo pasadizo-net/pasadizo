@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/pasadizo-net/pasadizo/adapter"
 	C "github.com/pasadizo-net/pasadizo/constant"
 	"github.com/sagernet/sing/common/buf"
 	"github.com/sagernet/sing/common/bufio"
@@ -113,16 +114,20 @@ func (c *Client) openTunnelHTTP1(ctx context.Context, conn net.Conn, request tun
 		conn.Close()
 	})
 	defer stop()
+	authorization, err := c.authorizationFor(connExporter(conn), c.authority())
+	if err != nil {
+		return nil, err
+	}
 	httpRequest := &http.Request{
 		Method: http.MethodGet,
 		URL:    request.url,
 		Host:   c.authority(),
-		Header: buildRequestHeader(c.headers, c.authorization, request.originAuthorization),
+		Header: buildRequestHeader(c.headers, authorization, request.originAuthorization),
 	}
 	httpRequest.Header.Set("Connection", "Upgrade")
 	httpRequest.Header.Set("Upgrade", request.protocol)
 	httpRequest.Header.Set("Capsule-Protocol", "?1")
-	err := httpRequest.Write(conn)
+	err = httpRequest.Write(conn)
 	if err != nil {
 		return nil, E.Cause(err, "write request")
 	}
@@ -156,11 +161,16 @@ func (c *Client) openTunnelHTTP2(ctx context.Context, session *http2Session, req
 	requestURL := *request.url
 	requestURL.Scheme = "https"
 	requestURL.Host = c.authority()
+	authorization, err := c.authorizationFor(session.exporter, c.authority())
+	if err != nil {
+		c.releaseHTTP2(session, adapter.KeepSessionFromContext(ctx))
+		return nil, err
+	}
 	httpRequest := &http.Request{
 		Method: http.MethodConnect,
 		URL:    &requestURL,
 		Host:   c.authority(),
-		Header: buildRequestHeader(c.headers, c.authorization, request.originAuthorization),
+		Header: buildRequestHeader(c.headers, authorization, request.originAuthorization),
 	}
 	httpRequest.Header.Set(":protocol", request.protocol)
 	httpRequest.Header.Set("Capsule-Protocol", "?1")

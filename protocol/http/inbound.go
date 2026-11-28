@@ -49,6 +49,13 @@ func NewInbound(ctx context.Context, router adapter.Router, logger log.ContextLo
 	if !serveHTTP1 && !serveHTTP2 && options.SetSystemProxy {
 		return nil, E.New("set_system_proxy requires HTTP/1 or HTTP/2")
 	}
+	concealedAuth, err := http.NewConcealedAuthOptions(options.ConcealedAuth)
+	if err != nil {
+		return nil, err
+	}
+	if concealedAuth != nil && (options.TLS == nil || !options.TLS.Enabled) && len(concealedAuth.FrontendSourceIPCIDR) == 0 {
+		return nil, E.New("concealed_auth requires TLS, or frontend_source_ip_cidr behind a TLS frontend")
+	}
 	inbound := &Inbound{
 		Adapter: inbound.NewAdapter(C.TypeHTTP, tag),
 		ctx:     ctx,
@@ -56,6 +63,7 @@ func NewInbound(ctx context.Context, router adapter.Router, logger log.ContextLo
 		logger:  logger,
 		server: http.NewServer(http.ServerOptions{
 			Authenticator: auth.NewAuthenticator(options.Users),
+			ConcealedAuth: concealedAuth,
 			AuthExempt:    options.AuthExemptSourceIPCIDR,
 			Logger:        logger,
 			HTTP1:         serveHTTP1,

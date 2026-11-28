@@ -33,6 +33,9 @@ type serverConn struct {
 	source   M.Socksaddr
 	onClose  N.CloseHandlerFunc
 	upstream *upstreamConn
+	// rawRequest holds the bytes of the current request when a concealed
+	// authentication fallback may need to replay them.
+	rawRequest []byte
 }
 
 func (c *serverConn) serve() {
@@ -55,7 +58,14 @@ func (c *serverConn) serve() {
 func (c *serverConn) serveRequest() (requestResult, error) {
 	c.conn.SetReadDeadline(time.Now().Add(idleTimeout))
 	c.reader.setLimit(maxHeaderBytes)
+	recording := c.server.concealed != nil && c.server.concealed.Fallback.IsValid()
+	if recording {
+		c.reader.startRecording()
+	}
 	request, err := badhttp.ReadRequest(c.reader.Reader)
+	if recording {
+		c.rawRequest = c.reader.stopRecording()
+	}
 	c.reader.setLimit(-1)
 	c.conn.SetReadDeadline(time.Time{})
 	if err != nil {
@@ -70,19 +80,28 @@ func (c *serverConn) serveRequest() (requestResult, error) {
 	}
 	tunnelProtocol, tunnelHandler := c.server.upgradeTunnelHandler(request)
 	if tunnelHandler != nil {
-		tunnelCtx, tunnelAuthErr := c.server.authenticate(c.ctx, request, "Authorization", c.source)
+		tunnelCtx, tunnelAuthErr := c.server.authenticate(c.ctx, request, "Authorization", c.source, connExporter(c.conn))
 		if tunnelAuthErr != nil {
 			c.server.logger.ErrorContext(c.ctx, E.Cause(tunnelAuthErr, "process connection from ", c.source))
+			if c.server.concealed != nil {
+				return c.serveDecoy(request, tunnelAuthErr)
+			}
 			return c.reject(request, requestKeepAlive(request), http.StatusUnauthorized, nil, tunnelAuthErr)
 		}
 		return c.serveTunnel(tunnelCtx, request, badhttp.ForwardedSource(request, c.source), tunnelProtocol, tunnelHandler)
 	}
 	if c.handler == nil {
+		if c.server.concealed != nil {
+			return c.serveDecoy(request, E.New("unexpected request: ", request.Method, " ", request.URL))
+		}
 		return c.reject(request, requestKeepAlive(request), http.StatusNotFound, nil, E.New("unexpected request: ", request.Method, " ", request.URL))
 	}
-	ctx, authErr := c.server.authenticate(c.ctx, request, "Proxy-Authorization", c.source)
+	ctx, authErr := c.server.authenticate(c.ctx, request, "Proxy-Authorization", c.source, connExporter(c.conn))
 	if authErr != nil {
 		c.server.logger.ErrorContext(c.ctx, E.Cause(authErr, "process connection from ", c.source))
+		if c.server.concealed != nil {
+			return c.serveDecoy(request, authErr)
+		}
 		return c.reject(request, requestKeepAlive(request), http.StatusProxyAuthRequired, nil, authErr)
 	}
 	source := badhttp.ForwardedSource(request, c.source)
