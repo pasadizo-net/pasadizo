@@ -11,6 +11,7 @@
   "server_port": 1080,
   "username": "sekai",
   "password": "admin",
+  "concealed_auth": {},
   "path": "",
   "headers": {},
   "version": 0,
@@ -43,6 +44,12 @@ Basic authorization username.
 #### password
 
 Basic authorization password.
+
+#### concealed_auth
+
+!!! question "Since sing-box 1.15.0"
+
+[Concealed authentication](/configuration/shared/concealed-auth/#outbound) (RFC 9729) with a private key, instead of `username` and `password`. TLS is required.
 
 #### path
 

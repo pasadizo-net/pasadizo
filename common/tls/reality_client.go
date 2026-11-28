@@ -210,6 +210,7 @@ func (e *RealityClientConfig) ClientHandshake(ctx context.Context, conn net.Conn
 		return nil, E.New("reality verification failed")
 	}
 
+	disableRenegotiationAfterTLS13(uConn, uConfig)
 	return &realityClientConnWrapper{uConn}, nil
 }
 
@@ -305,6 +306,12 @@ func (c *realityClientConnWrapper) ConnectionState() tls.ConnectionState {
 		OCSPResponse:                state.OCSPResponse,
 		TLSUnique:                   state.TLSUnique,
 	}
+}
+
+// ExportKeyingMaterial uses uTLS's own state, which ConnectionState drops.
+func (c *realityClientConnWrapper) ExportKeyingMaterial(label string, context []byte, length int) ([]byte, error) {
+	state := c.Conn.ConnectionState()
+	return state.ExportKeyingMaterial(label, context, length)
 }
 
 func (c *realityClientConnWrapper) Upstream() any {

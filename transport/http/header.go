@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/pasadizo-net/pasadizo/common/concealedauth"
 	M "github.com/sagernet/sing/common/metadata"
 
 	"golang.org/x/net/http/httpguts"
@@ -35,6 +36,8 @@ func removeHopByHopHeaders(header http.Header) {
 	header.Del("TE")
 	header.Del("Transfer-Encoding")
 	header.Del("Upgrade")
+	// A client must not hand a backend its own exporter output (RFC 9729, Section 6.2).
+	header.Del(concealedauth.ExportHeader)
 }
 
 func requestKeepAlive(request *http.Request) bool {
@@ -43,6 +46,12 @@ func requestKeepAlive(request *http.Request) bool {
 			headerHasToken(request.Header, "Proxy-Connection", "keep-alive")
 	}
 	return !request.Close && !headerHasToken(request.Header, "Proxy-Connection", "close")
+}
+
+// requestStartsTransition reports whether the request asks to switch the
+// connection away from HTTP/1.1: a CONNECT or an Upgrade.
+func requestStartsTransition(request *http.Request) bool {
+	return request != nil && (request.Method == http.MethodConnect || requestIsUpgrade(request))
 }
 
 func requestIsUpgrade(request *http.Request) bool {

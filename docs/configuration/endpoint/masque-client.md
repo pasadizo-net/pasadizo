@@ -15,6 +15,7 @@
   "server_port": 443,
   "username": "",
   "password": "",
+  "concealed_auth": {},
   "path": "",
   "headers": {},
   "version": 0,
@@ -59,6 +60,10 @@ Basic authorization username.
 ### password
 
 Basic authorization password.
+
+### concealed_auth
+
+[Concealed authentication](/configuration/shared/concealed-auth/#outbound) (RFC 9729) with a private key, instead of `username` and `password`. TLS is required.
 
 ### path
 

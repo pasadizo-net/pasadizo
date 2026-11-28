@@ -29,6 +29,21 @@ func (r *Reader) setLimit(limit int64) {
 	r.limiter.remaining = limit
 }
 
+// startRecording keeps every byte of the next request from here on: what is
+// buffered now and what is read from the connection until stopRecording.
+func (r *Reader) startRecording() {
+	buffered, _ := r.Peek(r.Buffered())
+	r.limiter.record = append(make([]byte, 0, len(buffered)), buffered...)
+	r.limiter.recording = true
+}
+
+func (r *Reader) stopRecording() []byte {
+	record := r.limiter.record
+	r.limiter.record = nil
+	r.limiter.recording = false
+	return record
+}
+
 func (r *Reader) cachedConn(conn net.Conn) net.Conn {
 	if r.Buffered() == 0 {
 		return conn
@@ -45,9 +60,20 @@ func (r *Reader) cachedConn(conn net.Conn) net.Conn {
 type readLimiter struct {
 	reader    io.Reader
 	remaining int64
+	recording bool
+	record    []byte
 }
 
 func (r *readLimiter) Read(p []byte) (int, error) {
+	if r.recording {
+		n, err := r.read(p)
+		r.record = append(r.record, p[:n]...)
+		return n, err
+	}
+	return r.read(p)
+}
+
+func (r *readLimiter) read(p []byte) (int, error) {
 	if r.remaining < 0 {
 		return r.reader.Read(p)
 	}

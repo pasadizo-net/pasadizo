@@ -15,6 +15,7 @@
     }
   ],
   "auth_exempt_source_ip_cidr": [],
+  "concealed_auth": {},
   "tls": {},
   "set_system_proxy": false,
 
@@ -59,6 +60,12 @@ Source address prefixes whose connections need no credentials, for example `["10
 The prefixes match the address of the connection, never an address from a forwarding header such as `X-Forwarded-For`, which a client can set.
 
 No authentication required if empty.
+
+#### concealed_auth
+
+!!! question "Since sing-box 1.15.0"
+
+[Concealed authentication](/configuration/shared/concealed-auth/#inbound) (RFC 9729): clients prove a key bound to their TLS session, and every request without a valid proof gets a decoy answer instead of a `407`, so an active probe sees a web server.
 
 #### set_system_proxy
 

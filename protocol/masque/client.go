@@ -118,10 +118,15 @@ func NewClientEndpoint(ctx context.Context, router adapter.Router, logger log.Co
 			}
 		}
 	}
+	concealedAuth, err := http.NewConcealedAuthSigner(options.ConcealedAuth, options.TLS != nil && options.TLS.Enabled, options.Username)
+	if err != nil {
+		return nil, err
+	}
 	httpClient, err := http.NewClientWithTLS(ctx, logger, outboundDialer, options.ServerOptions, common.PtrValueOrDefault(options.TLS), options.DomainResolver, http.ClientOptions{
 		Authority:              authority,
 		Username:               options.Username,
 		Password:               options.Password,
+		ConcealedAuth:          concealedAuth,
 		Headers:                headers,
 		Version:                version,
 		DisableVersionFallback: options.DisableVersionFallback,

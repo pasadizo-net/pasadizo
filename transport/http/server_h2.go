@@ -7,9 +7,10 @@ import (
 	"maps"
 	"net"
 	"net/http"
-	"strings"
 
 	"github.com/pasadizo-net/pasadizo/common/badhttp"
+	"github.com/pasadizo-net/pasadizo/common/concealedauth"
+	sTLS "github.com/pasadizo-net/pasadizo/common/tls"
 	"github.com/pasadizo-net/pasadizo/log"
 	"github.com/pasadizo-net/pasadizo/transport/v2rayhttp"
 	"github.com/sagernet/sing/common/bufio"
@@ -66,6 +67,7 @@ func (s *Server) serveHTTP2(ctx context.Context, conn net.Conn, reader *Reader, 
 			server:    s,
 			handler:   handler,
 			source:    source,
+			conn:      conn,
 			plaintext: !isStater,
 		},
 	})
@@ -75,10 +77,26 @@ func (s *Server) serveHTTP2(ctx context.Context, conn net.Conn, reader *Reader, 
 }
 
 type httpHandler struct {
-	server    *Server
-	handler   Handler
-	source    M.Socksaddr
+	server  *Server
+	handler Handler
+	source  M.Socksaddr
+	// conn is the HTTP/2 connection; HTTP/3 requests carry their TLS state instead.
+	conn      net.Conn
 	plaintext bool
+}
+
+func (h *httpHandler) exporter(request *http.Request) concealedauth.Exporter {
+	if h.conn != nil {
+		return connExporter(h.conn)
+	}
+	if request.TLS == nil {
+		return nil
+	}
+	// A request in 0-RTT data is not yet bound to the handshake, and the state
+	// refuses to export until the handshake completes.
+	return func(label string, context []byte, length int) ([]byte, error) {
+		return sTLS.ExportKeyingMaterialFromState(request.TLS, label, context, length)
+	}
 }
 
 func (h *httpHandler) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
@@ -87,18 +105,16 @@ func (h *httpHandler) ServeHTTP(writer http.ResponseWriter, request *http.Reques
 	if !connectionSource.IsValid() {
 		connectionSource = M.ParseSocksaddr(request.RemoteAddr).Unwrap()
 	}
-	var protocol string
-	if request.Method == http.MethodConnect {
-		protocol = request.Header.Get(":protocol")
-		if protocol == "" && request.ProtoMajor == 3 && !strings.HasPrefix(request.Proto, "HTTP/") {
-			protocol = request.Proto
-		}
-	}
+	protocol := extendedConnectProtocol(request)
 	tunnelHandler := h.server.tunnels[protocol]
 	if tunnelHandler != nil {
-		tunnelCtx, authErr := h.server.authenticate(ctx, request, "Authorization", connectionSource)
+		tunnelCtx, authErr := h.server.authenticate(ctx, request, "Authorization", connectionSource, h.exporter(request))
 		if authErr != nil {
 			h.server.logger.ErrorContext(ctx, E.Cause(authErr, "process connection from ", connectionSource))
+			if h.server.concealed != nil {
+				h.serveDecoy(writer, request)
+				return
+			}
 			writer.Header().Set("WWW-Authenticate", `Basic realm="`+realm+`", charset="UTF-8"`)
 			writer.WriteHeader(http.StatusUnauthorized)
 			return
@@ -108,12 +124,20 @@ func (h *httpHandler) ServeHTTP(writer http.ResponseWriter, request *http.Reques
 	}
 	if h.handler == nil {
 		h.server.logger.ErrorContext(ctx, "process connection from ", connectionSource, ": unexpected request: ", request.Method, " ", request.URL)
+		if h.server.concealed != nil {
+			h.serveDecoy(writer, request)
+			return
+		}
 		writer.WriteHeader(http.StatusNotFound)
 		return
 	}
-	proxyCtx, authErr := h.server.authenticate(ctx, request, "Proxy-Authorization", connectionSource)
+	proxyCtx, authErr := h.server.authenticate(ctx, request, "Proxy-Authorization", connectionSource, h.exporter(request))
 	if authErr != nil {
 		h.server.logger.ErrorContext(ctx, E.Cause(authErr, "process connection from ", connectionSource))
+		if h.server.concealed != nil {
+			h.serveDecoy(writer, request)
+			return
+		}
 		writer.Header().Set("Proxy-Authenticate", `Basic realm="`+realm+`", charset="UTF-8"`)
 		writer.WriteHeader(http.StatusProxyAuthRequired)
 		return

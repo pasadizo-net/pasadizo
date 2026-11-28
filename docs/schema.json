@@ -703,6 +703,64 @@
       },
       "additionalProperties": false
     },
+    "ConcealedAuthInboundOptions": {
+      "type": "object",
+      "properties": {
+        "users": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ConcealedAuthUser"
+          }
+        },
+        "fallback": {
+          "$ref": "#/$defs/ServerOptions"
+        },
+        "frontend_source_ip_cidr": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/IPPrefix"
+            },
+            {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/IPPrefix"
+              }
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "ConcealedAuthOutboundOptions": {
+      "type": "object",
+      "properties": {
+        "key_id": {
+          "type": "string"
+        },
+        "private_key": {
+          "type": "string"
+        },
+        "realm": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "ConcealedAuthUser": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "key_id": {
+          "type": "string"
+        },
+        "public_key": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
     "DERPMeshOptions": {
       "type": "object",
       "properties": {
@@ -3593,6 +3651,9 @@
             "password": {
               "type": "string"
             },
+            "concealed_auth": {
+              "$ref": "#/$defs/ConcealedAuthOutboundOptions"
+            },
             "tls": {
               "$ref": "#/$defs/OutboundTLSOptions"
             },
@@ -3788,6 +3849,9 @@
               "items": {
                 "$ref": "#/$defs/User"
               }
+            },
+            "concealed_auth": {
+              "$ref": "#/$defs/ConcealedAuthInboundOptions"
             },
             "version": {
               "anyOf": [
@@ -6659,6 +6723,9 @@
                   }
                 }
               ]
+            },
+            "concealed_auth": {
+              "$ref": "#/$defs/ConcealedAuthInboundOptions"
             },
             "domain_resolver": {
               "$ref": "#/$defs/DomainResolver"
@@ -12256,6 +12323,9 @@
             },
             "password": {
               "type": "string"
+            },
+            "concealed_auth": {
+              "$ref": "#/$defs/ConcealedAuthOutboundOptions"
             },
             "tls": {
               "$ref": "#/$defs/OutboundTLSOptions"

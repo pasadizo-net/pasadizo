@@ -13,7 +13,9 @@ import (
 	"time"
 
 	"github.com/pasadizo-net/pasadizo/adapter"
+	"github.com/pasadizo-net/pasadizo/common/concealedauth"
 	"github.com/pasadizo-net/pasadizo/common/httpclient"
+	sTLS "github.com/pasadizo-net/pasadizo/common/tls"
 	C "github.com/pasadizo-net/pasadizo/constant"
 	"github.com/sagernet/quic-go"
 	"github.com/sagernet/quic-go/http3"
@@ -35,6 +37,7 @@ type http3ClientImpl struct {
 	authority     string
 	headers       http.Header
 	authorization string
+	concealed     *concealedauth.Signer
 	quicConfig    *quic.Config
 	transport     *http3.Transport
 	closeIdle     *atomic.Bool
@@ -45,7 +48,8 @@ type http3ClientImpl struct {
 
 type http3Conn struct {
 	*http3.ClientConn
-	streams int
+	quicConn *quic.Conn
+	streams  int
 }
 
 func newHTTP3Client(options ClientOptions, authorization string, closeIdle *atomic.Bool) (http3Client, error) {
@@ -76,6 +80,7 @@ func newHTTP3Client(options ClientOptions, authorization string, closeIdle *atom
 		authority:     authority,
 		headers:       headers,
 		authorization: authorization,
+		concealed:     options.ConcealedAuth,
 		quicConfig:    quicConfig,
 		transport:     &http3.Transport{EnableDatagrams: true, DisableCompression: true, AdditionalSettings: options.HTTP3Settings},
 		closeIdle:     closeIdle,
@@ -142,7 +147,7 @@ func (c *http3ClientImpl) dialConn(ctx context.Context, offer *dialOffer) (*http
 		quicConn.CloseWithError(0, "")
 		return nil, net.ErrClosed
 	}
-	c.conn = &http3Conn{ClientConn: c.transport.NewClientConn(quicConn), streams: 1}
+	c.conn = &http3Conn{ClientConn: c.transport.NewClientConn(quicConn), quicConn: quicConn, streams: 1}
 	return c.conn, nil
 }
 
@@ -204,7 +209,23 @@ func (c *http3ClientImpl) openRequestStream(ctx context.Context, extendedConnect
 	}
 }
 
-func (c *http3ClientImpl) openStream(ctx context.Context, request *http.Request, extendedConnect bool, keepSession bool) (*http3.RequestStream, *http3Conn, error) {
+// concealedAuthorization waits for the handshake, so that the proof is never
+// sent in 0-RTT data, and returns the proof for the connection.
+func (c *http3ClientImpl) concealedAuthorization(ctx context.Context, conn *http3Conn, authority string) (string, error) {
+	select {
+	case <-conn.quicConn.HandshakeComplete():
+	case <-conn.quicConn.Context().Done():
+		return "", E.Cause1(ErrHTTP3Unavailable, context.Cause(conn.quicConn.Context()))
+	case <-ctx.Done():
+		return "", E.Cause(ctx.Err(), "wait for QUIC handshake")
+	}
+	return concealedAuthorization(c.concealed, func(label string, context []byte, length int) ([]byte, error) {
+		state := conn.quicConn.ConnectionState().TLS
+		return sTLS.ExportKeyingMaterialFromState(&state, label, context, length)
+	}, authority)
+}
+
+func (c *http3ClientImpl) openStream(ctx context.Context, request *http.Request, extendedConnect bool, keepSession bool, originAuthorization bool) (*http3.RequestStream, *http3Conn, error) {
 	conn, stream, err := c.openRequestStream(ctx, extendedConnect, keepSession)
 	if err != nil {
 		return nil, nil, err
@@ -216,7 +237,20 @@ func (c *http3ClientImpl) openStream(ctx context.Context, request *http.Request,
 		stream.CancelWrite(0)
 	})
 	var response *http.Response
-	err = stream.SendRequestHeader(request)
+	if c.concealed != nil {
+		var authorization string
+		authorization, err = c.concealedAuthorization(ctx, conn, request.Host)
+		if err == nil {
+			if originAuthorization {
+				request.Header.Set("Authorization", authorization)
+			} else {
+				request.Header.Set("Proxy-Authorization", authorization)
+			}
+		}
+	}
+	if err == nil {
+		err = stream.SendRequestHeader(request)
+	}
 	if err == nil {
 		response, err = stream.ReadResponse()
 	}
@@ -248,7 +282,7 @@ func (c *http3ClientImpl) DialContext(ctx context.Context, destination M.Socksad
 		URL:    &url.URL{Host: destination.String()},
 		Host:   destination.String(),
 		Header: buildRequestHeader(c.headers, c.authorization, false),
-	}, false, keepSession)
+	}, false, keepSession, false)
 	if err != nil {
 		return nil, err
 	}
@@ -272,7 +306,7 @@ func (c *http3ClientImpl) OpenTunnel(ctx context.Context, request tunnelRequest)
 		URL:    &requestURL,
 		Host:   c.authority,
 		Header: header,
-	}, true, keepSession)
+	}, true, keepSession, request.originAuthorization)
 	if err != nil {
 		return nil, err
 	}
