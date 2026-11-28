@@ -6155,6 +6155,21 @@
         }
       ]
     },
+    "Hysteria2CarefulResumeOptions": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "lifetime": {
+          "$ref": "#/$defs/Duration"
+        },
+        "state_file": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
     "Hysteria2InboundRealm": {
       "type": "object",
       "properties": {
@@ -7104,6 +7119,9 @@
             },
             "realm": {
               "$ref": "#/$defs/Hysteria2InboundRealm"
+            },
+            "careful_resume": {
+              "$ref": "#/$defs/Hysteria2CarefulResumeOptions"
             }
           },
           "required": [
@@ -12801,6 +12819,9 @@
             },
             "realm": {
               "$ref": "#/$defs/Hysteria2Realm"
+            },
+            "careful_resume": {
+              "$ref": "#/$defs/Hysteria2CarefulResumeOptions"
             }
           },
           "required": [
