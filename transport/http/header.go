@@ -48,6 +48,12 @@ func requestKeepAlive(request *http.Request) bool {
 	return !request.Close && !headerHasToken(request.Header, "Proxy-Connection", "close")
 }
 
+// requestStartsTransition reports whether the request asks to switch the
+// connection away from HTTP/1.1: a CONNECT or an Upgrade.
+func requestStartsTransition(request *http.Request) bool {
+	return request != nil && (request.Method == http.MethodConnect || requestIsUpgrade(request))
+}
+
 func requestIsUpgrade(request *http.Request) bool {
 	return request.Header.Get("Upgrade") != "" && headerHasToken(request.Header, "Connection", "upgrade")
 }

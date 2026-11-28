@@ -131,6 +131,13 @@ func (c *serverConn) serveConnect(ctx context.Context, request *http.Request, so
 }
 
 func (c *serverConn) reject(request *http.Request, keepAlive bool, statusCode int, header http.Header, cause error) (requestResult, error) {
+	// A client may have sent tunnel data right after a CONNECT or an Upgrade,
+	// before our answer, and it must not be read as the next request (RFC 9931,
+	// Section 8 for CONNECT; Section 6.3 for connect-udp clients that still
+	// send datagrams early).
+	if requestStartsTransition(request) {
+		keepAlive = false
+	}
 	if keepAlive && request.Body != nil && request.Body != http.NoBody {
 		keepAlive = c.discardBody(request.Body)
 	}
