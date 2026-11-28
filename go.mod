@@ -206,3 +206,5 @@ require (
 	lukechampine.com/blake3 v1.3.0 // indirect
 	zombiezen.com/go/capnproto2 v2.18.2+incompatible // indirect
 )
+
+replace github.com/sagernet/sing-quic => github.com/pasadizo-net/sing-quic v0.0.0-20261128042405-cb8af86b707e
