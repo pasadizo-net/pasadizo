@@ -16,6 +16,13 @@ on:
   schedule:
     - cron: "17 3 * * 1"
   workflow_dispatch:
+    inputs:
+      base:
+        description: >-
+          The upstream commit main last merged, when upstream rewrote testing
+          and git merge-base finds an older one (SYNC_BASE of sync-merge.sh)
+        required: false
+        default: ""
 
 permissions:
   contents: write
@@ -51,6 +58,8 @@ jobs:
       - name: Merge the renamed upstream
         id: merge
         if: steps.fetch.outputs.skip != 'true'
+        env:
+          SYNC_BASE: ${{ inputs.base }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -89,12 +98,14 @@ jobs:
           go test -race -count=1 -tags "$tags" -ldflags "$(cat release/LDFLAGS)" "${pkgs[@]}" 2>&1 | tee test.log
       - name: Open the pull request
         if: steps.fetch.outputs.skip != 'true' && steps.merge.outputs.conflict != 'true'
+        env:
+          SYNC_BASE: ${{ inputs.base }}
         run: |
           branch="${{ steps.merge.outputs.branch }}"
           git push origin "$branch"
           result="passed"
           [ "${{ steps.test.outcome }}" = "success" ] || result="FAILED (see the workflow run)"
-          range="$(git merge-base HEAD~1 "upstream/$UPSTREAM_BRANCH")..upstream/$UPSTREAM_BRANCH"
+          range="${SYNC_BASE:-$(git merge-base HEAD~1 "upstream/$UPSTREAM_BRANCH")}..upstream/$UPSTREAM_BRANCH"
           bt='`'
           log="$(git log --oneline "$range" | head -100)"
           body="Weekly merge of upstream ${bt}${UPSTREAM_BRANCH}${bt} at ${{ steps.fetch.outputs.head }}.
