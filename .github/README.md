@@ -91,6 +91,8 @@ Upstream is not merged as it is, because a plain merge conflicts wherever upstre
 
 To do a sync by hand, run `.github/pasadizo/sync-merge.sh upstream/testing` on a new branch after `git fetch upstream testing`.
 
+Upstream sometimes rewrites `testing`: for 1.15.0-alpha.15 the commits Pasadizo had merged got new hashes. `git merge-base` then finds a much older upstream commit, and the merge replays weeks of upstream changes against Pasadizo's own and conflicts in dozens of files. In that case give the upstream commit that `main` merged last as the base: `SYNC_BASE=<commit> .github/pasadizo/sync-merge.sh upstream/testing` by hand, or the `base` input when you run the workflow by hand. Only the difference between that commit and the new head is then merged, and the next sync finds the right base by itself again.
+
 ## License
 
 Pasadizo is distributed under the same license as sing-box: the GNU General Public License, version 3 or later ([LICENSE](../LICENSE)), with sing-box's additional term that no derivative work may use its name or imply association with it without prior consent. That is why this project has its own name and states above that it is not affiliated with sing-box. Copyright of the upstream code stays with its authors; see the upstream [README](../README.md).
