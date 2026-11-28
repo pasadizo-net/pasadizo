@@ -27,6 +27,17 @@ type Hysteria2InboundOptions struct {
 	BBRProfile  string                 `json:"bbr_profile,omitempty" enum:"standard,conservative,aggressive"`
 	BrutalDebug bool                   `json:"brutal_debug,omitempty"`
 	Realm       *Hysteria2InboundRealm `json:"realm,omitempty"`
+
+	CarefulResume *Hysteria2CarefulResumeOptions `json:"careful_resume,omitempty"`
+}
+
+// Hysteria2CarefulResumeOptions turns on Careful Resume (RFC 9959) for the
+// BBR sender: a new connection to a peer that an earlier connection measured
+// starts from half of the saved bottleneck bandwidth instead of slow start.
+type Hysteria2CarefulResumeOptions struct {
+	Enabled   bool               `json:"enabled,omitempty"`
+	Lifetime  badoption.Duration `json:"lifetime,omitempty"`
+	StateFile string             `json:"state_file,omitempty"`
 }
 
 type Hysteria2Realm struct {
@@ -222,6 +233,8 @@ type Hysteria2OutboundOptions struct {
 	BrutalDebug         bool            `json:"brutal_debug,omitempty"`
 	DisableChromeParrot bool            `json:"disable_chrome_parrot,omitempty"`
 	Realm               *Hysteria2Realm `json:"realm,omitempty"`
+
+	CarefulResume *Hysteria2CarefulResumeOptions `json:"careful_resume,omitempty"`
 }
 
 type HysteriaRealmUser struct {

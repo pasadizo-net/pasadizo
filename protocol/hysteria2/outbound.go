@@ -18,6 +18,7 @@ import (
 	"github.com/pasadizo-net/pasadizo/log"
 	"github.com/pasadizo-net/pasadizo/option"
 	qtls "github.com/sagernet/sing-quic"
+	congestion "github.com/sagernet/sing-quic/congestion_meta2"
 	"github.com/sagernet/sing-quic/hysteria"
 	"github.com/sagernet/sing-quic/hysteria2"
 	"github.com/sagernet/sing-quic/hysteria2/realm"
@@ -46,6 +47,8 @@ type Outbound struct {
 	logger  logger.ContextLogger
 	clients []*hysteria2.Client
 	next    atomic.Uint32
+
+	carefulResume *congestion.CarefulResumeStore
 }
 
 func NewOutbound(ctx context.Context, router adapter.Router, logger log.ContextLogger, tag string, options option.Hysteria2OutboundOptions) (adapter.Outbound, error) {
@@ -140,6 +143,12 @@ func NewOutbound(ctx context.Context, router adapter.Router, logger log.ContextL
 		}
 	}
 	networkList := options.Network.Build()
+	// One store for every connection of the pool: they share the path, and
+	// only one of them at a time resumes from the saved parameters.
+	carefulResume, err := newCarefulResumeStore(ctx, options.CarefulResume)
+	if err != nil {
+		return nil, err
+	}
 	clientOptions := hysteria2.ClientOptions{
 		Context:            ctx,
 		Dialer:             outboundDialer,
@@ -166,10 +175,11 @@ func NewOutbound(ctx context.Context, router adapter.Router, logger log.ContextL
 			InitialPacketSize:       options.InitialPacketSize,
 			DisablePathMTUDiscovery: options.DisablePathMTUDiscovery,
 		},
-		UDPDisabled:  !common.Contains(networkList, N.NetworkUDP),
-		BBRProfile:   options.BBRProfile,
-		ChromeParrot: !options.DisableChromeParrot,
-		RealmOptions: realmOptions,
+		UDPDisabled:   !common.Contains(networkList, N.NetworkUDP),
+		BBRProfile:    options.BBRProfile,
+		ChromeParrot:  !options.DisableChromeParrot,
+		RealmOptions:  realmOptions,
+		CarefulResume: carefulResume,
 	}
 	clients := make([]*hysteria2.Client, connections)
 	for i := range clients {
@@ -179,9 +189,10 @@ func NewOutbound(ctx context.Context, router adapter.Router, logger log.ContextL
 		}
 	}
 	return &Outbound{
-		Adapter: outbound.NewAdapterWithDialerOptions(C.TypeHysteria2, tag, networkList, options.DialerOptions),
-		logger:  logger,
-		clients: clients,
+		Adapter:       outbound.NewAdapterWithDialerOptions(C.TypeHysteria2, tag, networkList, options.DialerOptions),
+		logger:        logger,
+		clients:       clients,
+		carefulResume: carefulResume,
 	}, nil
 }
 
@@ -272,5 +283,8 @@ func (h *Outbound) Start(stage adapter.StartStage, scope *adapter.Scope) error {
 		}
 		return nil
 	})
+	if h.carefulResume != nil {
+		scope.Add(h.carefulResume.Close)
+	}
 	return nil
 }
