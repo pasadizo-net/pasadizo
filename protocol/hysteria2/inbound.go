@@ -206,6 +206,7 @@ func NewInbound(ctx context.Context, router adapter.Router, logger log.ContextLo
 		MasqueradeHandler:     masqueradeHandler,
 		BBRProfile:            options.BBRProfile,
 		RealmOptions:          realmOptions,
+		Multipath:             options.Multipath != nil && options.Multipath.Enabled,
 	})
 	if err != nil {
 		return nil, err

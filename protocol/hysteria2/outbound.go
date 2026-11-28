@@ -139,6 +139,10 @@ func NewOutbound(ctx context.Context, router adapter.Router, logger log.ContextL
 			}
 		}
 	}
+	multipathPaths, err := newMultipathPaths(ctx, options, connections)
+	if err != nil {
+		return nil, err
+	}
 	networkList := options.Network.Build()
 	clientOptions := hysteria2.ClientOptions{
 		Context:            ctx,
@@ -166,10 +170,11 @@ func NewOutbound(ctx context.Context, router adapter.Router, logger log.ContextL
 			InitialPacketSize:       options.InitialPacketSize,
 			DisablePathMTUDiscovery: options.DisablePathMTUDiscovery,
 		},
-		UDPDisabled:  !common.Contains(networkList, N.NetworkUDP),
-		BBRProfile:   options.BBRProfile,
-		ChromeParrot: !options.DisableChromeParrot,
-		RealmOptions: realmOptions,
+		UDPDisabled:    !common.Contains(networkList, N.NetworkUDP),
+		BBRProfile:     options.BBRProfile,
+		ChromeParrot:   !options.DisableChromeParrot,
+		RealmOptions:   realmOptions,
+		MultipathPaths: multipathPaths,
 	}
 	clients := make([]*hysteria2.Client, connections)
 	for i := range clients {

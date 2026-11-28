@@ -216,6 +216,10 @@ github.com/openai/openai-go/v3 v3.26.0 h1:bRt6H/ozMNt/dDkN4gobnLqaEGrRGBzmbVs0xx
 github.com/openai/openai-go/v3 v3.26.0/go.mod h1:cdufnVK14cWcT9qA1rRtrXx4FTRsgbDPW7Ia7SS5cZo=
 github.com/oschwald/maxminddb-golang v1.13.1 h1:G3wwjdN9JmIK2o/ermkHM+98oX5fS+k5MbwsmL4MRQE=
 github.com/oschwald/maxminddb-golang v1.13.1/go.mod h1:K4pgV9N/GcK694KSTmVSDTODk4IsCNThNdTmnaBZ/F8=
+github.com/pasadizo-net/quic-go v0.0.0-20261128032755-6a83538be8f4 h1:xU3u8llLgWdXjjQs78ySPCOUiRwd8XoQgtvNl03+3uQ=
+github.com/pasadizo-net/quic-go v0.0.0-20261128032755-6a83538be8f4/go.mod h1:Zo98Ai4X4V5LfA+9lieDJyoYRQlhMQBvVSWQgD2uNe4=
+github.com/pasadizo-net/sing-quic v0.0.0-20261128032834-7c18df49e4fd h1:s4cwmT2PqeZsLHpcwWXp8/noFpBIlSEGl3WMBc5iDwQ=
+github.com/pasadizo-net/sing-quic v0.0.0-20261128032834-7c18df49e4fd/go.mod h1:JARCn8PKeE+jvL5CvSndd2CorhyPd65hFpZAn4UbY5c=
 github.com/philhofer/fwd v1.2.0 h1:e6DnBTl7vGY+Gz322/ASL4Gyp1FspeMvx1RNDoToZuM=
 github.com/philhofer/fwd v1.2.0/go.mod h1:RqIHx9QI14HlwKwm98g9Re5prTQ6LdeRQn+gXJFxsJM=
 github.com/pierrec/lz4/v4 v4.1.26 h1:GrpZw1gZttORinvzBdXPUXATeqlJjqUG/D87TKMnhjY=
