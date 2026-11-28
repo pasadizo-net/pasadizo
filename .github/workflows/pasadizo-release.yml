@@ -11,8 +11,13 @@
 # on the AUR account of the package's maintainer. Without a secret, its step is
 # skipped and the rest of the release still runs.
 #
-# The two secrets are set only on the steps that need them: the check below and
-# GoReleaser. The other actions never see them, and every action is pinned to a
+# GoReleaser writes the AUR package's PKGBUILD and .SRCINFO but does not push
+# them: .github/pasadizo/aur-publish.sh adds `options=('!strip')`, which
+# GoReleaser cannot write, so makepkg installs the attested binary unchanged.
+#
+# The two secrets are set only on the steps that need them: the check below,
+# GoReleaser (the tap key) and the AUR step (the AUR key). The other actions
+# never see them, and every action is pinned to a
 # commit SHA (Renovate updates the pin and its version comment), so a moved tag
 # upstream cannot run new code beside the keys.
 name: pasadizo-release
@@ -58,6 +63,8 @@ jobs:
           if [ -z "$AUR_KEY" ]; then
             echo "::warning::AUR_KEY is not set; the AUR package is not published."
             skip+=(aur)
+          else
+            echo "aur=true" >>"$GITHUB_OUTPUT"
           fi
           if [ "${#skip[@]}" -gt 0 ]; then
             echo "skip=--skip=$(IFS=,; echo "${skip[*]}")" >>"$GITHUB_OUTPUT"
@@ -84,7 +91,11 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
           HOMEBREW_TAP_KEY: ${{ secrets.HOMEBREW_TAP_KEY }}
-          AUR_KEY: ${{ secrets.AUR_KEY }}
       - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
           subject-checksums: ./dist/checksums.txt
+      - name: Publish the AUR package without stripping
+        if: steps.flags.outputs.aur == 'true'
+        env:
+          AUR_KEY: ${{ secrets.AUR_KEY }}
+        run: .github/pasadizo/aur-publish.sh "$GITHUB_REF_NAME"
