@@ -8,7 +8,7 @@ icon: material/new-box
 
 The Concealed HTTP authentication scheme ([RFC 9729](https://www.rfc-editor.org/rfc/rfc9729)) lets an HTTP server hide that it is a proxy. The client signs a value exported from its TLS session with a private key, and sends the key ID, its public key and the signature in an `Authorization: Concealed ...` header field (`Proxy-Authorization` for `CONNECT` and forwarded requests). The server sends no challenge. A request without a valid proof gets the decoy: the answer of the [fallback](#fallback), or a plain `404 Not Found`, the same answer as for a resource that does not exist. An active probe sees a web server, never a `401` or `407`.
 
-A proof is bound to its TLS session and to the scheme, host and port of the request's target, so it cannot be replayed on another connection. It needs TLS 1.3, or TLS 1.2 with the extended master secret. Over HTTP/3 the client sends the proof only after the handshake, never in 0-RTT data, and the server ignores a proof that arrived in 0-RTT data.
+A proof is bound to its TLS session and to the scheme, host and port of the request's target, so it cannot be replayed on another connection. It needs TLS 1.3, or TLS 1.2 with the extended master secret. With a [uTLS](/configuration/shared/tls/#utls) fingerprint or [Reality](/configuration/shared/tls/#reality-fields) on the client, it needs TLS 1.3: the browser fingerprints offer renegotiation, which rules out the exporter on TLS 1.2. Over HTTP/3 the client sends the proof only after the handshake, never in 0-RTT data, and the server ignores a proof that arrived in 0-RTT data.
 
 It is supported by the [HTTP inbound](/configuration/inbound/http/) and [outbound](/configuration/outbound/http/), and by the [MASQUE server](/configuration/endpoint/masque-server/) and [client](/configuration/endpoint/masque-client/), over HTTP/1.1, HTTP/2 and HTTP/3.
 
@@ -64,7 +64,7 @@ The keys the server accepts.
 
 A plain HTTP server, such as a web server on the same host, that answers every request without a valid proof.
 
-Over HTTP/1.1 the connection is relayed to it byte for byte from the first such request on, so the fallback answers that request and every later one on the connection. Over HTTP/2 and HTTP/3 each such request is forwarded to it as an HTTP/1.1 request with the original `Host`.
+Over HTTP/1.1 the connection is relayed to it byte for byte from the first such request on, so the fallback answers that request and every later one on the connection, also a request that does not parse. Over HTTP/2 and HTTP/3 each such request is forwarded to it as an HTTP/1.1 request with the original `Host`: a `CONNECT` as an HTTP/1.1 `CONNECT` to the same authority, and an extended `CONNECT` (such as `connect-ip`) as a `GET` with `Upgrade`, and the fallback's own answer is relayed.
 
 A plain `404 Not Found` is sent if empty.
 

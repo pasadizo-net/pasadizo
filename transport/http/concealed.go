@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"log"
+	"maps"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -11,6 +12,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/pasadizo-net/pasadizo/common/concealedauth"
 	"github.com/pasadizo-net/pasadizo/common/tls"
@@ -156,42 +158,109 @@ func (s *Server) trustedFrontend(source M.Socksaddr) bool {
 	return false
 }
 
-func newFallbackProxy(fallback M.Socksaddr) *httputil.ReverseProxy {
+func newFallbackTransport(fallback M.Socksaddr) *http.Transport {
+	return &http.Transport{
+		DialContext: func(ctx context.Context, _ string, _ string) (net.Conn, error) {
+			return N.SystemDialer.DialContext(ctx, N.NetworkTCP, fallback)
+		},
+		DisableCompression: true,
+	}
+}
+
+func newFallbackProxy(fallback M.Socksaddr, transport *http.Transport) *httputil.ReverseProxy {
 	target := &url.URL{Scheme: "http", Host: fallback.String()}
 	return &httputil.ReverseProxy{
 		Rewrite: func(request *httputil.ProxyRequest) {
 			request.SetURL(target)
 			request.Out.Host = request.In.Host
-			for name := range request.Out.Header {
-				if strings.HasPrefix(name, ":") {
-					delete(request.Out.Header, name)
-				}
-			}
+			removePseudoHeaders(request.Out.Header)
 		},
-		Transport: &http.Transport{
-			DialContext: func(ctx context.Context, _ string, _ string) (net.Conn, error) {
-				return N.SystemDialer.DialContext(ctx, N.NetworkTCP, fallback)
-			},
-			DisableCompression: true,
-		},
-		ErrorLog: log.New(io.Discard, "", 0),
+		Transport: transport,
+		ErrorLog:  log.New(io.Discard, "", 0),
 	}
+}
+
+func removePseudoHeaders(header http.Header) {
+	for name := range header {
+		if strings.HasPrefix(name, ":") {
+			delete(header, name)
+		}
+	}
+}
+
+// extendedConnectProtocol returns the :protocol of an extended CONNECT over
+// HTTP/2 or HTTP/3, and an empty string for any other request.
+func extendedConnectProtocol(request *http.Request) string {
+	if request.Method != http.MethodConnect {
+		return ""
+	}
+	protocol := request.Header.Get(":protocol")
+	if protocol == "" && request.ProtoMajor == 3 && !strings.HasPrefix(request.Proto, "HTTP/") {
+		protocol = request.Proto
+	}
+	return protocol
 }
 
 // serveDecoy answers a request without a valid proof over HTTP/2 or HTTP/3 the
 // way the fallback, or a server without the resource, would.
 func (h *httpHandler) serveDecoy(writer http.ResponseWriter, request *http.Request) {
-	if h.server.fallbackProxy != nil {
+	switch {
+	case h.server.fallbackProxy == nil:
+		writeNotFound(writer)
+	case request.Method == http.MethodConnect:
+		h.server.serveFallbackConnect(writer, request)
+	default:
 		h.server.fallbackProxy.ServeHTTP(writer, request)
+	}
+}
+
+// serveFallbackConnect lets the fallback answer a CONNECT, which
+// httputil.ReverseProxy refuses with its own 405. A CONNECT goes to the
+// fallback as an HTTP/1.1 CONNECT to the same authority, and an extended
+// CONNECT as its HTTP/1.1 form, a GET with Upgrade (RFC 8441, Section 5).
+func (s *Server) serveFallbackConnect(writer http.ResponseWriter, request *http.Request) {
+	header := request.Header.Clone()
+	removePseudoHeaders(header)
+	removeHopByHopHeaders(header)
+	outbound := &http.Request{
+		Header: header,
+		Host:   request.Host,
+		Body:   http.NoBody,
+	}
+	if protocol := extendedConnectProtocol(request); protocol != "" {
+		outbound.Method = http.MethodGet
+		outbound.URL = &url.URL{Scheme: "http", Host: s.concealed.Fallback.String(), Path: request.URL.Path, RawPath: request.URL.RawPath, RawQuery: request.URL.RawQuery}
+		header.Set("Connection", "Upgrade")
+		header.Set("Upgrade", protocol)
+	} else {
+		outbound.Method = http.MethodConnect
+		outbound.URL = &url.URL{Scheme: "http", Host: request.Host}
+	}
+	if _, loaded := header["User-Agent"]; !loaded {
+		header["User-Agent"] = nil
+	}
+	response, err := s.fallbackTransport.RoundTrip(outbound.WithContext(request.Context()))
+	if err != nil {
+		writer.WriteHeader(http.StatusBadGateway)
 		return
 	}
-	writeNotFound(writer)
+	defer response.Body.Close()
+	if response.StatusCode == http.StatusSwitchingProtocols {
+		// HTTP/2 and HTTP/3 cannot carry a switch of protocols.
+		writer.WriteHeader(http.StatusBadGateway)
+		return
+	}
+	removeHopByHopHeaders(response.Header)
+	maps.Copy(writer.Header(), response.Header)
+	writer.WriteHeader(response.StatusCode)
+	bufio.Copy(flushWriter{writer}, response.Body)
 }
 
 func writeNotFound(writer http.ResponseWriter) {
 	body := http.StatusText(http.StatusNotFound) + "\n"
 	writer.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	writer.Header().Set("Content-Length", strconv.Itoa(len(body)))
+	writer.Header().Set("Date", time.Now().UTC().Format(http.TimeFormat))
 	writer.WriteHeader(http.StatusNotFound)
 	io.WriteString(writer, body)
 }
@@ -203,15 +272,26 @@ func (c *serverConn) serveDecoy(request *http.Request, cause error) (requestResu
 	if !c.server.concealed.Fallback.IsValid() {
 		return c.reject(request, requestKeepAlive(request), http.StatusNotFound, nil, cause)
 	}
-	fallbackConn, err := N.SystemDialer.DialContext(c.ctx, N.NetworkTCP, c.server.concealed.Fallback)
+	return requestClose, c.server.relayFallback(c.ctx, c.conn, c.rawRequest)
+}
+
+// relayFallback hands the HTTP/1 connection to the fallback: head is what was
+// already read from conn, and the rest of conn follows it.
+func (s *Server) relayFallback(ctx context.Context, conn net.Conn, head []byte) error {
+	fallbackConn, err := N.SystemDialer.DialContext(ctx, N.NetworkTCP, s.concealed.Fallback)
 	if err != nil {
-		return c.reject(request, false, http.StatusBadGateway, nil, E.Cause(err, "dial fallback"))
+		return E.Cause(err, "dial fallback")
 	}
-	_, err = fallbackConn.Write(c.rawRequest)
+	_, err = fallbackConn.Write(head)
 	if err != nil {
 		fallbackConn.Close()
-		return requestClose, E.Cause(err, "write fallback")
+		return E.Cause(err, "write fallback")
 	}
-	bufio.CopyConn(c.ctx, c.conn, fallbackConn)
-	return requestClose, nil
+	bufio.CopyConn(ctx, conn, fallbackConn)
+	return nil
+}
+
+// fallbackEnabled reports whether requests without a proof go to a fallback.
+func (s *Server) fallbackEnabled() bool {
+	return s.concealed != nil && s.concealed.Fallback.IsValid()
 }

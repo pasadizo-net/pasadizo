@@ -109,7 +109,11 @@ func startConcealedProxy(t *testing.T, fallback *option.ServerOptions) uint16 {
 
 // startConcealedClient starts a mixed proxy whose traffic leaves through an
 // HTTP outbound with concealed authentication, and returns the mixed proxy.
-func startConcealedClient(t *testing.T, serverPort uint16, privateKey string, version int) *url.URL {
+func startConcealedClient(t *testing.T, serverPort uint16, privateKey string, version int, fingerprint ...string) *url.URL {
+	tlsOptions := &option.OutboundTLSOptions{Enabled: true, Insecure: true}
+	if len(fingerprint) > 0 {
+		tlsOptions.UTLS = &option.OutboundUTLSOptions{Enabled: true, Fingerprint: fingerprint[0]}
+	}
 	port := freePort(t)
 	listen := badoption.Addr(netip.MustParseAddr("127.0.0.1"))
 	startBox(t, option.Options{
@@ -122,14 +126,11 @@ func startConcealedClient(t *testing.T, serverPort uint16, privateKey string, ve
 			Type: C.TypeHTTP,
 			Tag:  "http-out",
 			Options: &option.HTTPOutboundOptions{
-				ServerOptions:          option.ServerOptions{Server: "127.0.0.1", ServerPort: serverPort},
-				ConcealedAuth:          &option.ConcealedAuthOutboundOptions{KeyID: "house", PrivateKey: privateKey},
-				Version:                version,
-				DisableVersionFallback: true,
-				OutboundTLSOptionsContainer: option.OutboundTLSOptionsContainer{TLS: &option.OutboundTLSOptions{
-					Enabled:  true,
-					Insecure: true,
-				}},
+				ServerOptions:               option.ServerOptions{Server: "127.0.0.1", ServerPort: serverPort},
+				ConcealedAuth:               &option.ConcealedAuthOutboundOptions{KeyID: "house", PrivateKey: privateKey},
+				Version:                     version,
+				DisableVersionFallback:      true,
+				OutboundTLSOptionsContainer: option.OutboundTLSOptionsContainer{TLS: tlsOptions},
 			},
 		}},
 	})
@@ -150,6 +151,19 @@ func TestConcealedAuthOutbound(t *testing.T) {
 	for _, version := range []int{1, 2, 3} {
 		t.Run("HTTP/"+strconv.Itoa(version), func(t *testing.T) {
 			proxy := startConcealedClient(t, serverPort, concealedPrivateKey, version)
+			require.Equal(t, http.StatusNoContent, get(t, proxy, target.URL))
+		})
+	}
+}
+
+// uTLS's browser fingerprints offer renegotiation, which used to block the
+// exporter even on TLS 1.3.
+func TestConcealedAuthOutboundUTLS(t *testing.T) {
+	target := newTarget(t)
+	serverPort := startConcealedProxy(t, nil)
+	for _, version := range []int{1, 2} {
+		t.Run("HTTP/"+strconv.Itoa(version), func(t *testing.T) {
+			proxy := startConcealedClient(t, serverPort, concealedPrivateKey, version, "chrome")
 			require.Equal(t, http.StatusNoContent, get(t, proxy, target.URL))
 		})
 	}
@@ -223,6 +237,7 @@ func TestConcealedAuthProbeGetsNotFound(t *testing.T) {
 		require.Equal(t, http.StatusNotFound, response.StatusCode, request)
 		require.Equal(t, "Not Found\n", body)
 		require.Empty(t, response.Header.Get("Proxy-Authenticate"))
+		require.NotEmpty(t, response.Header.Get("Date"))
 	}
 	status, body := getHTTP2(t, port, nil)
 	require.Equal(t, http.StatusNotFound, status)
@@ -232,7 +247,16 @@ func TestConcealedAuthProbeGetsNotFound(t *testing.T) {
 func TestConcealedAuthProbeGetsFallback(t *testing.T) {
 	fallback := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Server", "nginx")
-		io.WriteString(w, "welcome to "+r.Host+r.URL.Path)
+		switch {
+		case r.Method == http.MethodConnect:
+			w.WriteHeader(http.StatusBadRequest)
+			io.WriteString(w, "no CONNECT to "+r.Host)
+		case r.Header.Get("Upgrade") != "":
+			w.WriteHeader(http.StatusNotFound)
+			io.WriteString(w, "no "+r.Header.Get("Upgrade")+" at "+r.URL.Path)
+		default:
+			io.WriteString(w, "welcome to "+r.Host+r.URL.Path)
+		}
 	}))
 	defer fallback.Close()
 	fallbackPort := uint16(fallback.Listener.Addr().(*net.TCPAddr).Port)
@@ -251,6 +275,36 @@ func TestConcealedAuthProbeGetsFallback(t *testing.T) {
 	status, body := getHTTP2(t, port, nil)
 	require.Equal(t, http.StatusOK, status)
 	require.Equal(t, "welcome to 127.0.0.1:"+strconv.Itoa(int(port))+"/", body)
+
+	// A CONNECT over HTTP/2, plain or extended, is the fallback's to answer too.
+	transport := &http2.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
+	connect := &http.Request{Method: http.MethodConnect, URL: &url.URL{Scheme: "https", Host: "127.0.0.1:" + strconv.Itoa(int(port))}, Host: "example.com:443", Header: http.Header{}}
+	response, err := transport.RoundTrip(connect)
+	require.NoError(t, err)
+	connectBody, _ := io.ReadAll(response.Body)
+	response.Body.Close()
+	require.Equal(t, http.StatusBadRequest, response.StatusCode)
+	require.Equal(t, "nginx", response.Header.Get("Server"))
+	require.Equal(t, "no CONNECT to example.com:443", string(connectBody))
+
+	extended := &http.Request{Method: http.MethodConnect, URL: &url.URL{Scheme: "https", Host: "127.0.0.1:" + strconv.Itoa(int(port)), Path: "/.well-known/masque/ip/*/*/"}, Host: "127.0.0.1", Header: http.Header{":protocol": {"connect-ip"}}}
+	response, err = transport.RoundTrip(extended)
+	require.NoError(t, err)
+	extendedBody, _ := io.ReadAll(response.Body)
+	response.Body.Close()
+	require.Equal(t, http.StatusNotFound, response.StatusCode)
+	require.Equal(t, "nginx", response.Header.Get("Server"))
+	require.Equal(t, "no connect-ip at /.well-known/masque/ip/*/*/", string(extendedBody))
+
+	// A request that does not parse gets the fallback's own answer.
+	garbage := "NOT HTTP AT ALL\r\n\r\n"
+	direct, err := net.Dial("tcp", fallback.Listener.Addr().String())
+	require.NoError(t, err)
+	defer direct.Close()
+	expected, expectedBody := rawRequest(t, direct, garbage)
+	response, body = rawRequest(t, dialTLS(t, port), garbage)
+	require.Equal(t, expected.Status, response.Status)
+	require.Equal(t, expectedBody, body)
 }
 
 func TestConcealedAuthProofBoundToConnection(t *testing.T) {

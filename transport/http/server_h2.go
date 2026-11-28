@@ -7,7 +7,6 @@ import (
 	"maps"
 	"net"
 	"net/http"
-	"strings"
 
 	"github.com/pasadizo-net/pasadizo/common/badhttp"
 	"github.com/pasadizo-net/pasadizo/common/concealedauth"
@@ -106,13 +105,7 @@ func (h *httpHandler) ServeHTTP(writer http.ResponseWriter, request *http.Reques
 	if !connectionSource.IsValid() {
 		connectionSource = M.ParseSocksaddr(request.RemoteAddr).Unwrap()
 	}
-	var protocol string
-	if request.Method == http.MethodConnect {
-		protocol = request.Header.Get(":protocol")
-		if protocol == "" && request.ProtoMajor == 3 && !strings.HasPrefix(request.Proto, "HTTP/") {
-			protocol = request.Proto
-		}
-	}
+	protocol := extendedConnectProtocol(request)
 	tunnelHandler := h.server.tunnels[protocol]
 	if tunnelHandler != nil {
 		tunnelCtx, authErr := h.server.authenticate(ctx, request, "Authorization", connectionSource, h.exporter(request))

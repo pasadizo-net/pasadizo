@@ -53,15 +53,16 @@ type ServerOptions struct {
 }
 
 type Server struct {
-	authenticator *auth.Authenticator
-	authExemptSet []netip.Prefix
-	concealed     *ConcealedAuthOptions
-	fallbackProxy *httputil.ReverseProxy
-	logger        logger.ContextLogger
-	http1         bool
-	http2Server   *http2.Server
-	udp           bool
-	tunnels       map[string]TunnelHandler
+	authenticator     *auth.Authenticator
+	authExemptSet     []netip.Prefix
+	concealed         *ConcealedAuthOptions
+	fallbackProxy     *httputil.ReverseProxy
+	fallbackTransport *http.Transport
+	logger            logger.ContextLogger
+	http1             bool
+	http2Server       *http2.Server
+	udp               bool
+	tunnels           map[string]TunnelHandler
 }
 
 func NewServer(options ServerOptions) *Server {
@@ -74,8 +75,9 @@ func NewServer(options ServerOptions) *Server {
 		udp:           options.UDP,
 		tunnels:       options.Tunnels,
 	}
-	if server.concealed != nil && server.concealed.Fallback.IsValid() {
-		server.fallbackProxy = newFallbackProxy(server.concealed.Fallback)
+	if server.fallbackEnabled() {
+		server.fallbackTransport = newFallbackTransport(server.concealed.Fallback)
+		server.fallbackProxy = newFallbackProxy(server.concealed.Fallback, server.fallbackTransport)
 	}
 	if options.HTTP2 {
 		server.http2Server = &http2.Server{
@@ -108,6 +110,11 @@ func (s *Server) ServeConnection(ctx context.Context, conn net.Conn, reader *Rea
 		}
 	}
 	if !s.http1 {
+		if s.fallbackEnabled() {
+			head, _ := reader.Peek(reader.Buffered())
+			s.finishConnection(ctx, conn, source, onClose, s.relayFallback(ctx, conn, head))
+			return
+		}
 		err := writeReject(conn, nil, http.StatusHTTPVersionNotSupported, nil, false)
 		s.finishConnection(ctx, conn, source, onClose, err)
 		return

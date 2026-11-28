@@ -58,7 +58,7 @@ func (c *serverConn) serve() {
 func (c *serverConn) serveRequest() (requestResult, error) {
 	c.conn.SetReadDeadline(time.Now().Add(idleTimeout))
 	c.reader.setLimit(maxHeaderBytes)
-	recording := c.server.concealed != nil && c.server.concealed.Fallback.IsValid()
+	recording := c.server.fallbackEnabled()
 	if recording {
 		c.reader.startRecording()
 	}
@@ -72,6 +72,9 @@ func (c *serverConn) serveRequest() (requestResult, error) {
 		switch {
 		case errors.Is(err, io.EOF), E.IsTimeout(err), E.IsClosed(err):
 			return requestClose, err
+		case c.server.fallbackEnabled():
+			// A request that does not parse is the fallback's to answer too.
+			return requestClose, c.server.relayFallback(c.ctx, c.conn, c.rawRequest)
 		case errors.Is(err, errHeaderTooLarge):
 			return c.rejectAndClose(nil, http.StatusRequestHeaderFieldsTooLarge, err)
 		default:
@@ -175,6 +178,9 @@ func writeReject(conn net.Conn, request *http.Request, statusCode int, header ht
 		response.Header = make(http.Header)
 	}
 	response.Header.Set("Content-Type", "text/plain; charset=utf-8")
+	// An origin server with a clock sends Date (RFC 9110, Section 6.6.1), as
+	// net/http does; without it this answer would stand out.
+	response.Header.Set("Date", time.Now().UTC().Format(http.TimeFormat))
 	if request != nil {
 		response.ProtoMajor = request.ProtoMajor
 		response.ProtoMinor = request.ProtoMinor
