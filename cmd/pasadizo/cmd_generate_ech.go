@@ -55,6 +55,7 @@ func generateECHKeyPair(serverName string, format string) error {
 		return err
 	}
 	os.Stdout.WriteString(configPem)
+	os.Stdout.WriteString("\n")
 	os.Stdout.WriteString(keyPem)
 	return nil
 }

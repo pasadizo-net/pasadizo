@@ -98,6 +98,21 @@ func TestParseECHConfigListPEMRefusesPrivateKey(t *testing.T) {
 	}
 }
 
+func TestParseECHConfigListPEMRefusesTrailingPrivateKey(t *testing.T) {
+	t.Parallel()
+	configPem, keyPem, err := ECHKeygenRFC9934("public.example.org")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The whole output of generate ech-keypair --format rfc9934.
+	if _, err := ParseECHConfigListPEM([]byte(configPem + keyPem)); err == nil {
+		t.Fatal("a client config followed by the server's private key was accepted")
+	}
+	if _, err := ParseECHConfigListPEM([]byte(configPem + "trailing text\n")); err != nil {
+		t.Fatal("content after the ECHConfigList must be ignored: ", err)
+	}
+}
+
 func TestParseECHKeysPEMRejectsForeignConfig(t *testing.T) {
 	t.Parallel()
 	_, keyPem, err := ECHKeygenRFC9934("public.example.org")

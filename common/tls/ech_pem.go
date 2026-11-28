@@ -43,7 +43,13 @@ func ParseECHConfigListPEM(content []byte) ([]byte, error) {
 			return nil, E.New("invalid ECH configs pem: trailing data")
 		}
 	case echConfigRFC9934PEMType:
-		// RFC 9934: content after the ECHConfigList SHOULD be ignored.
+		// RFC 9934: content after the ECHConfigList SHOULD be ignored, but a
+		// private key there means the server's key was pasted into a client.
+		for next, more := pem.Decode(rest); next != nil; next, more = pem.Decode(more) {
+			if next.Type == privateKeyPEMType {
+				return nil, E.New("ECH config pem holds a private key: give the client only the ECHCONFIG block")
+			}
+		}
 	case privateKeyPEMType:
 		return nil, E.New("ECH config pem holds a private key: give the client only the ECHCONFIG block")
 	default:
