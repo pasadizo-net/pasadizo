@@ -210,6 +210,7 @@ func (e *RealityClientConfig) ClientHandshake(ctx context.Context, conn net.Conn
 		return nil, E.New("reality verification failed")
 	}
 
+	disableRenegotiationAfterTLS13(uConn, uConfig)
 	return &realityClientConnWrapper{uConn}, nil
 }
 
