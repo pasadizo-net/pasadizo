@@ -182,16 +182,19 @@ func (h *httpHandler) serveConnect(ctx context.Context, writer http.ResponseWrit
 
 func (h *httpHandler) serveForward(ctx context.Context, writer http.ResponseWriter, request *http.Request, source M.Socksaddr) {
 	// golang.org/x/net/http2 (internal/httpcommon.NewServerRequest) and quic-go/http3 build the request
-	// URL from :path only; :scheme survives only as request.TLS, which x/net/http2 sets when :scheme is
-	// https and the served conn exposes ConnectionState, and http3 sets unless :scheme is http, so on a
-	// plaintext conn the scheme is unknowable.
+	// URL from :path only; :scheme survives only as request.TLS, which http3 sets unless :scheme is
+	// http, and x/net/http2 before Go 1.27 set when :scheme is https and the served conn exposes
+	// ConnectionState, so on a plaintext conn the scheme is unknowable. Since Go 1.27 the HTTP/2 server
+	// sets request.TLS for every request on a TLS conn, so the scheme is unknowable there too, and a
+	// forward request is taken as http, the only scheme forwardDestination accepts; before, one whose
+	// :scheme was https got a 400.
 	if request.URL.Scheme == "" {
 		if h.plaintext {
 			h.server.logger.ErrorContext(ctx, "process connection from ", source, ": forward request over cleartext HTTP/2")
 			writer.WriteHeader(http.StatusBadRequest)
 			return
 		}
-		if request.TLS != nil {
+		if request.TLS != nil && (h.conn == nil || http2TLSFollowsScheme) {
 			request.URL.Scheme = "https"
 		} else {
 			request.URL.Scheme = "http"
