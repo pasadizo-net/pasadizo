@@ -1,6 +1,6 @@
 module test
 
-go 1.26.11
+go 1.27.4
 
 require github.com/pasadizo-net/pasadizo v0.0.0
 
