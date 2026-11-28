@@ -584,7 +584,12 @@ uTLS 是 "crypto/tls" 的一个分支，它提供了 ClientHello 指纹识别阻
 
 ECH (Encrypted Client Hello) 是一个 TLS 扩展，它允许客户端加密其 ClientHello 的第一部分信息。
 
-ECH 密钥和配置可以通过 `sing-box generate ech-keypair` 生成。
+ECH 密钥和配置可以通过 `pasadizo generate ech-keypair` 生成。
+
+支持两种 PEM 格式：sing-box 自有的 `ECH CONFIGS`（客户端）与 `ECH KEYS`（服务端），以及
+[RFC 9934](https://www.rfc-editor.org/rfc/rfc9934.html) 格式：客户端使用 `ECHCONFIG`，服务端使用 PKCS #8 `PRIVATE KEY`（X25519）
+后接 `ECHCONFIG`（`pasadizo generate ech-keypair --format rfc9934 <public_name>`）。两种配置块内容相同，仅 PEM 标签不同。
+包含私钥的客户端配置将被拒绝。
 
 #### pq_signature_schemes_enabled
 
