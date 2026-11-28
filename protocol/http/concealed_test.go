@@ -2,6 +2,7 @@ package http_test
 
 import (
 	std_bufio "bufio"
+	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
@@ -31,6 +32,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"golang.org/x/net/http2"
+	"golang.org/x/net/http2/hpack"
 )
 
 // Generated with `pasadizo generate concealed-auth-keypair`.
@@ -222,6 +224,72 @@ func getHTTP2(t *testing.T, port uint16, header http.Header) (int, string) {
 	return response.StatusCode, string(body)
 }
 
+// extendedConnectHTTP2 sends one extended CONNECT (RFC 8441) for protocol and
+// path on a new HTTP/2 connection and returns the answer. It writes the frames
+// itself: since Go 1.27, net/http checks the header names of every HTTP/2
+// request it sends, also for golang.org/x/net/http2.Transport, and rejects the
+// :protocol pseudo-header, so no public client can send an extended CONNECT.
+func extendedConnectHTTP2(t *testing.T, port uint16, path, protocol string) (int, http.Header, string) {
+	conn := dialTLS(t, port, http2.NextProtoTLS)
+	conn.SetDeadline(time.Now().Add(5 * time.Second))
+	_, err := io.WriteString(conn, http2.ClientPreface)
+	require.NoError(t, err)
+	framer := http2.NewFramer(conn, conn)
+	framer.ReadMetaHeaders = hpack.NewDecoder(4096, nil)
+	require.NoError(t, framer.WriteSettings())
+	var block bytes.Buffer
+	encoder := hpack.NewEncoder(&block)
+	for _, field := range []hpack.HeaderField{
+		{Name: ":method", Value: http.MethodConnect},
+		{Name: ":protocol", Value: protocol},
+		{Name: ":scheme", Value: "https"},
+		{Name: ":path", Value: path},
+		{Name: ":authority", Value: "127.0.0.1"},
+	} {
+		require.NoError(t, encoder.WriteField(field))
+	}
+	require.NoError(t, framer.WriteHeaders(http2.HeadersFrameParam{StreamID: 1, BlockFragment: block.Bytes(), EndHeaders: true}))
+	var (
+		status int
+		header = http.Header{}
+		body   bytes.Buffer
+	)
+	for {
+		frame, err := framer.ReadFrame()
+		require.NoError(t, err)
+		switch frame := frame.(type) {
+		case *http2.SettingsFrame:
+			if !frame.IsAck() {
+				require.NoError(t, framer.WriteSettingsAck())
+			}
+		case *http2.MetaHeadersFrame:
+			if frame.StreamID != 1 {
+				continue
+			}
+			status, err = strconv.Atoi(frame.PseudoValue("status"))
+			require.NoError(t, err)
+			for _, field := range frame.RegularFields() {
+				header.Add(field.Name, field.Value)
+			}
+			if frame.StreamEnded() {
+				return status, header, body.String()
+			}
+		case *http2.DataFrame:
+			if frame.StreamID != 1 {
+				continue
+			}
+			body.Write(frame.Data())
+			if frame.StreamEnded() {
+				return status, header, body.String()
+			}
+		case *http2.RSTStreamFrame:
+			require.FailNow(t, "stream reset", frame.ErrCode.String())
+		case *http2.GoAwayFrame:
+			require.FailNow(t, "connection closed", frame.ErrCode.String())
+		}
+	}
+}
+
 func TestConcealedAuthProbeGetsNotFound(t *testing.T) {
 	target := newTarget(t)
 	port := startConcealedProxy(t, nil)
@@ -287,14 +355,10 @@ func TestConcealedAuthProbeGetsFallback(t *testing.T) {
 	require.Equal(t, "nginx", response.Header.Get("Server"))
 	require.Equal(t, "no CONNECT to example.com:443", string(connectBody))
 
-	extended := &http.Request{Method: http.MethodConnect, URL: &url.URL{Scheme: "https", Host: "127.0.0.1:" + strconv.Itoa(int(port)), Path: "/.well-known/masque/ip/*/*/"}, Host: "127.0.0.1", Header: http.Header{":protocol": {"connect-ip"}}}
-	response, err = transport.RoundTrip(extended)
-	require.NoError(t, err)
-	extendedBody, _ := io.ReadAll(response.Body)
-	response.Body.Close()
-	require.Equal(t, http.StatusNotFound, response.StatusCode)
-	require.Equal(t, "nginx", response.Header.Get("Server"))
-	require.Equal(t, "no connect-ip at /.well-known/masque/ip/*/*/", string(extendedBody))
+	status, header, extendedBody := extendedConnectHTTP2(t, port, "/.well-known/masque/ip/*/*/", "connect-ip")
+	require.Equal(t, http.StatusNotFound, status)
+	require.Equal(t, "nginx", header.Get("Server"))
+	require.Equal(t, "no connect-ip at /.well-known/masque/ip/*/*/", extendedBody)
 
 	// A request that does not parse gets the fallback's own answer.
 	garbage := "NOT HTTP AT ALL\r\n\r\n"

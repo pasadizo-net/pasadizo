@@ -33,10 +33,9 @@ func init() {
 func runAPITailscaleSSH(target string) error {
 	loginName := ""
 	selector := target
-	nameIndex := strings.LastIndex(target, "@")
-	if nameIndex != -1 {
-		loginName = target[:nameIndex]
-		selector = target[nameIndex+1:]
+	if name, rest, found := strings.CutLast(target, "@"); found {
+		loginName = name
+		selector = rest
 	}
 	if loginName == "" {
 		currentUser, userErr := user.Current()
