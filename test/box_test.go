@@ -26,7 +26,12 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	goleak.VerifyTestMain(m)
+	goleak.VerifyTestMain(m,
+		// kcp-go (the gost outbound's KCP transport) starts these workers from
+		// its package init since v5.7; they live as long as the process.
+		goleak.IgnoreTopFunction("github.com/xtaci/kcp-go/v5/internal/cmsg.cacheCleanup"),
+		goleak.IgnoreTopFunction("github.com/xtaci/kcp-go/v5.(*TimedSched).run"),
+	)
 }
 
 var globalCtx context.Context
