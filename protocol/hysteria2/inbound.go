@@ -183,7 +183,7 @@ func NewInbound(ctx context.Context, router adapter.Router, logger log.ContextLo
 			}
 		}
 	}
-	inbound.carefulResume, err = newCarefulResumeStore(ctx, options.CarefulResume)
+	inbound.carefulResume, err = newCarefulResumeStore(ctx, logger, options.CarefulResume)
 	if err != nil {
 		return nil, err
 	}
@@ -281,6 +281,9 @@ func (h *Inbound) Start(stage adapter.StartStage, scope *adapter.Scope) error {
 		return nil
 	}
 	if h.carefulResume != nil {
+		// Added first, so it closes last, after the service whose
+		// connections write to it.
+		h.carefulResume.Start()
 		scope.Add(h.carefulResume.Close)
 	}
 	if h.tlsConfig != nil {

@@ -227,7 +227,7 @@ maximums.
 
 !!! question "Since sing-box 1.15.0"
 
-Careful Resume ([RFC 9959](https://www.rfc-editor.org/rfc/rfc9959)) for the BBR congestion control. A new QUIC connection normally starts BBR from slow start, which on a path of 100 ms and 200 Mbit/s takes about two seconds to reach full speed. With Careful Resume, Pasadizo saves the bottleneck bandwidth and the minimum round trip time that BBR measures to each peer IP address, and a new connection to the same address starts from half of that bandwidth, once the path is confirmed, instead of from slow start.
+Careful Resume ([RFC 9959](https://www.rfc-editor.org/rfc/rfc9959)) for the BBR congestion control. A new QUIC connection normally starts BBR from slow start, which on a path of 100 ms and 200 Mbit/s takes about two seconds to reach full speed. With Careful Resume, Pasadizo saves the bottleneck bandwidth and the minimum round trip time that BBR measures to each peer IP address (the /64 of an IPv6 address), for at most 4096 peers, and a new connection to the same address starts from half of that bandwidth, once the path is confirmed, instead of from slow start.
 
 The connection goes through the phases of the RFC. It first sends as plain BBR until the initial window is acknowledged, and uses the saved values only when the round trip time is more than half and at most ten times the saved one. Then, for at most one round trip, it sends at half the saved bandwidth. If that meets congestion, the saved values are deleted and the connection falls back to half of what was delivered. Loss counts as congestion only when at least 8 packets and more than 5 % of the bytes were lost, because the paths this is for lose a few per cent at random. Only one connection at a time resumes from one set of saved values.
 
@@ -249,7 +249,7 @@ How long saved values may be reused after they were last measured.
 
 #### careful_resume.state_file
 
-A file that keeps the saved values across restarts. It is read at start and written every 10 seconds after a change and at stop. Every inbound and outbound needs a file of its own.
+A file that keeps the saved values across restarts. It is read at start and written every 10 seconds after a change and at stop. A file that cannot be read or written is logged as a warning and does not stop Pasadizo; values saved with a time in the future count as expired. Every inbound and outbound needs a file of its own.
 
 Not kept if empty.
 

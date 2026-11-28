@@ -145,7 +145,7 @@ func NewOutbound(ctx context.Context, router adapter.Router, logger log.ContextL
 	networkList := options.Network.Build()
 	// One store for every connection of the pool: they share the path, and
 	// only one of them at a time resumes from the saved parameters.
-	carefulResume, err := newCarefulResumeStore(ctx, options.CarefulResume)
+	carefulResume, err := newCarefulResumeStore(ctx, logger, options.CarefulResume)
 	if err != nil {
 		return nil, err
 	}
@@ -277,14 +277,17 @@ func (h *Outbound) Start(stage adapter.StartStage, scope *adapter.Scope) error {
 	if stage != adapter.StartStateInitialize {
 		return nil
 	}
+	if h.carefulResume != nil {
+		// Added first, so it closes last, after the clients whose
+		// connections write to it.
+		h.carefulResume.Start()
+		scope.Add(h.carefulResume.Close)
+	}
 	scope.Add(func() error {
 		for _, client := range h.clients {
 			client.CloseWithError(os.ErrClosed)
 		}
 		return nil
 	})
-	if h.carefulResume != nil {
-		scope.Add(h.carefulResume.Close)
-	}
 	return nil
 }
