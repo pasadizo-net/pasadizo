@@ -150,7 +150,14 @@ func (m *ConnectionManager) NewConnection(ctx context.Context, this N.Dialer, co
 		m.logger.ErrorContext(ctx, err)
 		return
 	}
-	remoteConn = m.watchFirstByte(metadata, remoteConn)
+	// The TLS fragment and spoof wrappers below need the connection they are
+	// given to unwrap to the TCP socket, which a watched connection does not,
+	// so with them the first byte is watched around the wrapper. Without
+	// them it is watched here, before a splice can take the connection.
+	watchWrapped := metadata.TLSFragment || metadata.TLSRecordFragment || metadata.TLSSpoof != ""
+	if !watchWrapped {
+		remoteConn = m.watchFirstByte(metadata, remoteConn)
+	}
 	if metadata.FairShare != nil {
 		conn = metadata.FairShare.NewConn(conn, metadata.Source.Addr)
 	} else if !metadata.TLSFragment && !metadata.TLSRecordFragment && metadata.TLSSpoof == "" {
@@ -179,6 +186,9 @@ func (m *ConnectionManager) NewConnection(ctx context.Context, this N.Dialer, co
 			return
 		}
 		remoteConn = spoofConn
+	}
+	if watchWrapped {
+		remoteConn = m.watchFirstByte(metadata, remoteConn)
 	}
 	var done atomic.Bool
 	if closed, _ := m.kickWriteHandshake(ctx, remoteConn, conn, false, true, &done, onClose); closed {

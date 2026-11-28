@@ -56,6 +56,7 @@ type URLTest struct {
 	interruptExternalConnections bool
 	fallback                     *fallbackStrategy
 	lazy                         []string
+	stallTimeout                 time.Duration
 	listeners                    healthListeners
 }
 
@@ -116,6 +117,9 @@ func (s *URLTest) Start(stage adapter.StartStage, scope *adapter.Scope) error {
 	case adapter.StartStateStarted:
 		s.group.PostStart()
 		scope.Add(s.group.Close)
+		if s.stallTimeout > 0 {
+			go s.group.watchStalls(s.stallTimeout, s.PerformUpdateCheck)
+		}
 	}
 	return nil
 }

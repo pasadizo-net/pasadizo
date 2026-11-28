@@ -43,6 +43,11 @@ func NewFallback(ctx context.Context, router adapter.Router, logger log.ContextL
 		interruptExternalConnections: options.InterruptExistConnections,
 		fallback:                     newFallbackStrategy(recoverAfter),
 		lazy:                         options.Lazy,
+		stallTimeout:                 time.Duration(options.StallTimeout),
+	}
+	err := checkStallTimeout(outbound.stallTimeout)
+	if err != nil {
+		return nil, err
 	}
 	if len(outbound.tags) == 0 {
 		return nil, E.New("missing tags")
@@ -143,13 +148,14 @@ func (f *fallbackStrategy) selectOutbound(g *URLTestGroup, network string) (adap
 		if !common.Contains(detour.Network(), network) {
 			continue
 		}
-		if firstSupported == nil {
-			firstSupported = detour
-		}
 		if g.isDormant(detour.Tag()) {
 			// a lazy member that is not being tested: its history, if any,
-			// is from the last time it was needed
+			// is from the last time it was needed, and it is not the member
+			// to fall back on when nothing is available either
 			continue
+		}
+		if firstSupported == nil {
+			firstSupported = detour
 		}
 		realTag := RealTag(detour, network)
 		if realTag == "" || g.history.LoadURLTestHistory(realTag) == nil {

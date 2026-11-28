@@ -36,10 +36,11 @@ func RegisterOutbound(registry *outbound.Registry) {
 }
 
 var (
-	_ adapter.Outbound                = (*Outbound)(nil)
-	_ adapter.InterfaceUpdateListener = (*Outbound)(nil)
-	_ adapter.IdleConnectionKeeper    = (*Outbound)(nil)
-	_ adapter.OutboundWithMultiplex   = (*Outbound)(nil)
+	_ adapter.Outbound                   = (*Outbound)(nil)
+	_ adapter.InterfaceUpdateListener    = (*Outbound)(nil)
+	_ adapter.IdleConnectionKeeper       = (*Outbound)(nil)
+	_ adapter.OutboundWithMultiplex      = (*Outbound)(nil)
+	_ adapter.OutboundWithTransportStats = (*Outbound)(nil)
 )
 
 type Outbound struct {
@@ -255,6 +256,27 @@ func (h *Outbound) InterfaceUpdated(ctx context.Context) {
 	for _, client := range h.clients {
 		client.CloseWithError(err)
 	}
+}
+
+// TransportStats returns the statistics of each QUIC connection of the
+// outbound that is open.
+func (h *Outbound) TransportStats() []adapter.TransportStats {
+	stats := make([]adapter.TransportStats, 0, len(h.clients))
+	for _, client := range h.clients {
+		connectionStats, connected := client.ConnectionStats()
+		if !connected {
+			continue
+		}
+		stats = append(stats, adapter.TransportStats{
+			PacketsSent:     connectionStats.PacketsSent,
+			PacketsReceived: connectionStats.PacketsReceived,
+			PacketsLost:     connectionStats.PacketsLost,
+			BytesSent:       connectionStats.BytesSent,
+			BytesReceived:   connectionStats.BytesReceived,
+			SmoothedRTT:     connectionStats.SmoothedRTT,
+		})
+	}
+	return stats
 }
 
 func (h *Outbound) MultiplexEnabled() bool {

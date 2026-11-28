@@ -7,7 +7,10 @@ import (
 	"time"
 
 	"github.com/pasadizo-net/pasadizo/adapter"
+	"github.com/pasadizo-net/pasadizo/adapter/outbound"
+	C "github.com/pasadizo-net/pasadizo/constant"
 	"github.com/pasadizo-net/pasadizo/option"
+	N "github.com/sagernet/sing/common/network"
 
 	"github.com/stretchr/testify/require"
 )
@@ -121,4 +124,29 @@ func TestNewFallbackLazy(t *testing.T) {
 		Lazy:      []string{"a"},
 	})
 	require.ErrorContains(t, err, "cannot be lazy")
+}
+
+func TestLazyMemberCarriesTheNetworkEarlierMembersLack(t *testing.T) {
+	t.Parallel()
+	l := newLazyTest(t, 1, []string{"lte"}, "naive", "lte")
+	// the first member carries TCP only, so UDP has no member before the lazy one
+	l.group.outbounds[0] = &fallbackTestOutbound{
+		Adapter: outbound.NewAdapter(C.TypeDirect, "naive", []string{N.NetworkTCP}, nil),
+	}
+	require.Equal(t, []string{"naive", "lte"}, l.round("naive", "lte"))
+	require.False(t, l.group.isDormant("lte"))
+	require.Equal(t, "naive", l.group.selectedOutboundTCP.Load().Tag())
+	require.Equal(t, "lte", l.group.selectedOutboundUDP.Load().Tag())
+}
+
+func TestDormantMemberIsNotTheLastResort(t *testing.T) {
+	t.Parallel()
+	l := newLazyTest(t, 1, []string{"lte"}, "a", "lte")
+	l.round("a")
+	// the only member that is tested fails between two rounds: the group
+	// stays on it until the lazy member has been tested
+	l.fail("a")
+	selected, available := l.group.Select(N.NetworkUDP)
+	require.Equal(t, "a", selected.Tag())
+	require.False(t, available)
 }

@@ -25,6 +25,8 @@ Pasadizo ("secret passage" in Spanish) is a proxy platform derived from [sing-bo
 | `fallback` outbound group: the first healthy member in a fixed order, with `recover_after` before it moves back up | `"type": "fallback"` | [docs/configuration/outbound/fallback.md](../docs/configuration/outbound/fallback.md) |
 | Lazy members of a `fallback` group: a backup on a metered or slow link is tested only while no member before it is available, so it costs no traffic while the others work | `"lazy": ["lte"]` on a `fallback` outbound | [docs/configuration/outbound/fallback.md](../docs/configuration/outbound/fallback.md#lazy) |
 | First byte timeout for the `loadbalance` circuit breaker: a connection that was written to and got no byte back counts as a failure of its member, which is the only failure a Hysteria2 or TUIC member on a dead path shows | `"first_byte_timeout": "5s"` on a `loadbalance` outbound | [docs/configuration/outbound/loadbalance.md](../docs/configuration/outbound/loadbalance.md#first_byte_timeout) |
+| Stall timeout for `loadbalance` and `fallback`: a Hysteria2 member whose QUIC connection sends packets and receives none is unavailable at once, found from the connection's own counters without test traffic | `"stall_timeout": "5s"` | [docs/configuration/outbound/loadbalance.md](../docs/configuration/outbound/loadbalance.md#stall_timeout) |
+| Round trip time, packets sent, received and lost, and the number of open QUIC connections per Hysteria2 outbound, in the Prometheus metrics | `sing_box_outbound_transport_*` | [docs/configuration/experimental/metrics.md](../docs/configuration/experimental/metrics.md#metrics) |
 | A reload (`SIGHUP`) that changes only route and DNS rules replaces them in the running instance and keeps every connection | `kill -HUP`, `systemctl reload` | [docs/configuration/reload.md](../docs/configuration/reload.md) |
 | `gost` outbound: a node of a gost v3 chain, an `http` handler on an `mtls` or `mtcp` listener (smux, HTTP `CONNECT`), chained with `detour` | `"type": "gost"` | [docs/configuration/outbound/gost.md](../docs/configuration/outbound/gost.md) |
 | Outbound groups do not fail over when the proxy server answered but could not reach the destination | `adapter.DestinationError` | [docs/configuration/outbound/gost.md](../docs/configuration/outbound/gost.md) |
@@ -81,6 +83,10 @@ Where Pasadizo behaves differently with an upstream configuration: an outbound g
 
 Pasadizo follows upstream's `testing` branch, so it has upstream 1.15's changes too. A 1.14 configuration that upstream 1.15 refuses, Pasadizo refuses as well: the TUN `stack` values `gvisor` and `mixed` need the `with_gvisor` build tag, which neither upstream 1.15 releases nor Pasadizo releases have (remove `stack`, see the [migration](../docs/migration.md)).
 
+## sing-quic
+
+Pasadizo builds with its own [sing-quic](https://github.com/pasadizo-net/sing-quic), upstream's library plus the changes Pasadizo needs in it (today: connection statistics of the Hysteria2 client, and Careful Resume in its BBR sender). `go.mod` takes it with a `replace` of `github.com/sagernet/sing-quic`, so no import path changes. The `require` line keeps the commit sing-box pins; `.github/pasadizo/check-sing-quic.sh`, which CI runs, fails when the replaced commit does not contain it, because the build would then pass on older QUIC code than sing-box asks for. After an upstream sync moves the pin: merge the sync pull request of `pasadizo-net/sing-quic`, then move the `replace` to the new commit of its `main` (the script's header has the command).
+
 ## Releases
 
 Tags look like `v1.15.0-alpha.14-pasadizo.2`: the upstream version, then Pasadizo's release number. GoReleaser (`.goreleaser.yaml`, run by `.github/workflows/pasadizo-release.yml`) builds each release with upstream's release build tags and linker flags (`release/DEFAULT_BUILD_TAGS_OTHERS`, `release/LDFLAGS`). A release has:
@@ -130,6 +136,8 @@ Upstream is not merged as it is, because a plain merge conflicts wherever upstre
 3. The merge commit has the renamed upstream head as its second parent, and the parent of that commit is upstream's own commit, so the next sync finds it as its base.
 
 To do a sync by hand, run `.github/pasadizo/sync-merge.sh upstream/testing` on a new branch after `git fetch upstream testing`.
+
+Upstream sometimes rewrites `testing`: for 1.15.0-alpha.15 the commits Pasadizo had merged got new hashes. `git merge-base` then finds a much older upstream commit, and the merge replays weeks of upstream changes against Pasadizo's own and conflicts in dozens of files. In that case give the upstream commit that `main` merged last as the base: `SYNC_BASE=<commit> .github/pasadizo/sync-merge.sh upstream/testing` by hand, or the `base` input when you run the workflow by hand. Only the difference between that commit and the new head is then merged, and the next sync finds the right base by itself again.
 
 ## License
 
