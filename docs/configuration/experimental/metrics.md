@@ -2,7 +2,7 @@
 icon: material/new-box
 ---
 
-!!! question "Since sing-box 1.15.0"
+!!! question "Pasadizo only"
 
 # Metrics
 
@@ -65,6 +65,11 @@ The response is in the Prometheus text format, version 0.0.4. The Clash API's `G
 | `sing_box_outbound_download_bytes_total`    | counter | `outbound`          | Bytes received per outbound                                          |
 | `sing_box_outbound_delay_milliseconds`      | gauge   | `outbound`          | Delay of the last successful URL test                                |
 | `sing_box_outbound_delay_timestamp_seconds` | gauge   | `outbound`          | Unix time of the last successful URL test                            |
+| `sing_box_outbound_transport_connections`   | gauge   | `outbound`          | Open transport connections (QUIC) of the outbound to its server. This and the next four exist for outbounds that keep such connections, today Hysteria2 |
+| `sing_box_outbound_transport_rtt_milliseconds` | gauge | `outbound`         | Smoothed round trip time of those connections, the highest of them; 0 without a connection |
+| `sing_box_outbound_transport_packets_sent_total` | counter | `outbound`     | Packets sent on the open connections. Starts again at zero with a new connection |
+| `sing_box_outbound_transport_packets_received_total` | counter | `outbound` | Packets received on the open connections                             |
+| `sing_box_outbound_transport_packets_lost_total` | counter | `outbound`     | Packets declared lost on the open connections. `rate()` of it over `rate()` of the sent packets is the loss of the path to the server |
 | `sing_box_group_selected`                   | gauge   | `group`, `outbound` | `1` for the selected member of an outbound group, `0` for the others |
 | `sing_box_inbound_connections_total`        | counter | `inbound`, `network` | Connections accepted per inbound; `network` is `tcp` or `udp`       |
 | `sing_box_inbound_errors_total`             | counter | `inbound`           | Inbound connections that failed to route or to dial their outbound   |

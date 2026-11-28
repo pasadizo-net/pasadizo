@@ -165,12 +165,10 @@ aurs:
     maintainers:
       - Parham Alvani <parham.alvani at gmail dot com>
     license: GPL-3.0-or-later
-    private_key: "{{ .Env.AUR_KEY }}"
-    git_url: ssh://aur@aur.archlinux.org/pasadizo-bin.git
-    commit_author:
-      name: Parham Alvani
-      email: parham.alvani@gmail.com
-    commit_msg_template: "pasadizo {{ .Tag }}"
+    # GoReleaser only writes dist/aur/pasadizo-bin.{pkgbuild,srcinfo}: it cannot
+    # write `options=('!strip')`, and without it makepkg strips the binary
+    # again. .github/pasadizo/aur-publish.sh adds the line and pushes to the AUR.
+    skip_upload: "true"
     provides: [pasadizo]
     conflicts: [pasadizo]
     backup:

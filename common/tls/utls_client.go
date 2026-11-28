@@ -91,7 +91,8 @@ func (c *UTLSClientConfig) Client(conn net.Conn) (Conn, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &utlsALPNWrapper{utlsConnWrapper{utls.UClient(conn, c.config.Clone(), c.id)}, c.config.NextProtos}, nil
+	config := c.config.Clone()
+	return &utlsALPNWrapper{utlsConnWrapper{utls.UClient(conn, config, c.id), config}, c.config.NextProtos}, nil
 }
 
 func (c *UTLSClientConfig) SetSessionIDGenerator(generator func(clientHello []byte, sessionID []byte) error) {
@@ -127,6 +128,8 @@ func (c *UTLSClientConfig) SetECHConfigList(EncryptedClientHelloConfigList []byt
 
 type utlsConnWrapper struct {
 	*utls.UConn
+	// config is this connection's own copy, which the handshake writes to.
+	config *utls.Config
 }
 
 func (c *utlsConnWrapper) ConnectionState() tls.ConnectionState {
@@ -148,12 +151,35 @@ func (c *utlsConnWrapper) ConnectionState() tls.ConnectionState {
 	}
 }
 
+// ExportKeyingMaterial uses uTLS's own state, which ConnectionState drops. See
+// disableRenegotiationAfterTLS13 for why it works with a browser fingerprint.
+func (c *utlsConnWrapper) ExportKeyingMaterial(label string, context []byte, length int) ([]byte, error) {
+	state := c.Conn.ConnectionState()
+	return state.ExportKeyingMaterial(label, context, length)
+}
+
 func (c *utlsConnWrapper) HandshakeContext(ctx context.Context) error {
 	err := c.UConn.HandshakeContext(ctx)
 	if echErr, ok := errors.AsType[*utls.ECHRejectionError](err); ok {
 		return &tls.ECHRejectionError{RetryConfigList: echErr.RetryConfigList}
 	}
+	if err == nil {
+		disableRenegotiationAfterTLS13(c.UConn, c.config)
+	}
 	return err
+}
+
+// disableRenegotiationAfterTLS13 lets a TLS 1.3 connection export keying
+// material. The renegotiation_info extension of uTLS's browser presets sets
+// config.Renegotiation, and uTLS then refuses to export on any version, though
+// TLS 1.3 has no renegotiation. After a TLS 1.3 handshake uTLS reads the
+// setting only for that refusal, and the ClientHello has already gone out, so
+// turning it off changes nothing on the wire. config must be the connection's
+// own copy.
+func disableRenegotiationAfterTLS13(conn *utls.UConn, config *utls.Config) {
+	if conn.ConnectionState().Version == utls.VersionTLS13 {
+		config.Renegotiation = utls.RenegotiateNever
+	}
 }
 
 func (c *utlsConnWrapper) Upstream() any {

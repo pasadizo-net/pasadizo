@@ -1,4 +1,4 @@
-!!! quote "sing-box 1.15.0 中的更改"
+!!! quote "Pasadizo 中的更改"
 
     :material-plus: [指标](#指标)
 
@@ -169,7 +169,7 @@ Clash 中的默认模式，默认使用 `Rule`。
 
 ### 指标
 
-!!! question "自 sing-box 1.15.0 起"
+!!! question "仅 Pasadizo"
 
 `GET /metrics` 以 Prometheus 文本格式返回指标，与其他 API 一样受 `secret` 保护。
 

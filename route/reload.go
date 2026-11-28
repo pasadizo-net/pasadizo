@@ -85,9 +85,14 @@ func (r *Router) PrepareRules(rules []option.Rule) (commit func(), abort func(),
 //
 // Three things are decided from the rules when the instance starts and are
 // not decided again by a reload: whether processes are looked up, whether
-// neighbors are resolved and whether the Wi-Fi state is watched. And a
-// rule-set that no rule used at start has been emptied to save memory, so the
-// next rules may use only rule-sets that the current ones use.
+// neighbors are resolved and whether the Wi-Fi state is watched. A rule-set
+// that no rule used at start has been emptied to save memory, so the next
+// rules may use only rule-sets that the current ones use. The list of Clash
+// modes that can be selected is built from the rules at the start, so the
+// next rules may name only modes that the current ones name. And a rule with
+// fair_share owns its limiter: connections that are open would stay on the
+// old limiter while new ones get another, which doubles the limit, so rules
+// with fair_share are not replaced in place.
 func RulesReloadable(current []option.Rule, next []option.Rule, currentDNS []option.DNSRule, nextDNS []option.DNSRule) error {
 	type need struct {
 		name          string
@@ -101,6 +106,17 @@ func RulesReloadable(current []option.Rule, next []option.Rule, currentDNS []opt
 		if it.current != it.next {
 			return E.New("the use of ", it.name, " rules changed")
 		}
+	}
+	var currentModes, nextModes []string
+	collectClashModes(current, currentDNS, &currentModes)
+	collectClashModes(next, nextDNS, &nextModes)
+	for _, mode := range nextModes {
+		if !slices.Contains(currentModes, mode) {
+			return E.New("Clash mode ", mode, " was not in use")
+		}
+	}
+	if usesFairShare(current) || usesFairShare(next) {
+		return E.New("the rules use fair_share")
 	}
 	var currentSets, nextSets []string
 	collectRuleSets(current, &currentSets)
@@ -135,6 +151,48 @@ func collectDNSRuleSets(rules []option.DNSRule, tags *[]string) {
 			collectDNSRuleSets(rule.LogicalOptions.Rules, tags)
 		}
 	}
+}
+
+func collectClashModes(rules []option.Rule, dnsRules []option.DNSRule, modes *[]string) {
+	for _, rule := range rules {
+		switch rule.Type {
+		case C.RuleTypeDefault:
+			if rule.DefaultOptions.ClashMode != "" {
+				*modes = append(*modes, rule.DefaultOptions.ClashMode)
+			}
+		case C.RuleTypeLogical:
+			collectClashModes(rule.LogicalOptions.Rules, nil, modes)
+		}
+	}
+	for _, rule := range dnsRules {
+		switch rule.Type {
+		case C.RuleTypeDefault:
+			if rule.DefaultOptions.ClashMode != "" {
+				*modes = append(*modes, rule.DefaultOptions.ClashMode)
+			}
+		case C.RuleTypeLogical:
+			collectClashModes(nil, rule.LogicalOptions.Rules, modes)
+		}
+	}
+}
+
+func usesFairShare(rules []option.Rule) bool {
+	actionUses := func(action option.RuleAction) bool {
+		return action.RouteOptions.FairShare != nil || action.RouteOptionsOptions.FairShare != nil || action.BypassOptions.FairShare != nil
+	}
+	for _, rule := range rules {
+		switch rule.Type {
+		case C.RuleTypeDefault:
+			if actionUses(rule.DefaultOptions.RuleAction) {
+				return true
+			}
+		case C.RuleTypeLogical:
+			if actionUses(rule.LogicalOptions.RuleAction) || usesFairShare(rule.LogicalOptions.Rules) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // UpdateRules gives the reference manager the rules of a reload, so that the

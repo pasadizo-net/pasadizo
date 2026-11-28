@@ -27,7 +27,7 @@ type http2ClientConn struct {
 }
 
 func newHTTP2ClientConn(transport *http2.Transport, conn net.Conn) (*http2ClientConn, error) {
-	clientConn, err := transportHTTP2NewClientConn(http2TransportInit(transport), conn, nil)
+	clientConn, err := transportHTTP2NewClientConn(initHTTP2Transport(transport), conn, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -49,6 +49,22 @@ func (c *http2ClientConn) roundTrip(request *http.Request) (*http.Response, erro
 		c.Release()
 	}
 	return response, err
+}
+
+// initHTTP2Transport returns the net/http.Transport that the x/net/http2
+// Transport wraps, with its HTTP/2 half set up.
+//
+// net/http creates that half (Transport.h2Transport) lazily, in
+// onceSetNextProtoDefaults under nextProtoOnce, and every exported entry point
+// (RoundTrip, NewClientConn, Clone, CloseIdleConnections) runs it first. A call
+// through linkname to http2NewClientConn skips it, and until it has run
+// http2NewClientConn returns errors.ErrUnsupported, which the client reports
+// as "create HTTP/2 connection: unsupported operation". Clone runs it without
+// changing the transport; CloseIdleConnections would also set closeIdle.
+func initHTTP2Transport(transport *http2.Transport) *http.Transport {
+	stdTransport := http2TransportInit(transport)
+	_ = stdTransport.Clone()
+	return stdTransport
 }
 
 //go:linkname http2TransportInit golang.org/x/net/http2.(*Transport).init

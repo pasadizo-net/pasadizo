@@ -25,8 +25,9 @@ type _MASQUEClientEndpointOptions struct {
 	DialerOptions
 	ServerOptions
 	MASQUEEndpointOptions
-	Username string `json:"username,omitempty"`
-	Password string `json:"password,omitempty"`
+	Username      string                        `json:"username,omitempty"`
+	Password      string                        `json:"password,omitempty"`
+	ConcealedAuth *ConcealedAuthOutboundOptions `json:"concealed_auth,omitempty"`
 	OutboundTLSOptionsContainer
 	Path                   string                           `json:"path,omitempty"`
 	Headers                badoption.HTTPHeader             `json:"headers,omitempty"`
@@ -78,8 +79,9 @@ func (o MASQUEClientEndpointOptions) DescribeSchema(builder schema.Builder) (*sc
 type _MASQUEServerEndpointOptions struct {
 	ListenOptions
 	MASQUEEndpointOptions
-	Users   []auth.User             `json:"users,omitempty"`
-	Version badoption.Listable[int] `json:"version,omitempty" enum:"1,2,3"`
+	Users         []auth.User                  `json:"users,omitempty"`
+	ConcealedAuth *ConcealedAuthInboundOptions `json:"concealed_auth,omitempty"`
+	Version       badoption.Listable[int]      `json:"version,omitempty" enum:"1,2,3"`
 	InboundTLSOptionsContainer
 	Path            string                           `json:"path,omitempty"`
 	Address         badoption.Listable[netip.Prefix] `json:"address"`

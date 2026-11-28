@@ -2,13 +2,21 @@
 # Merge an upstream sing-box commit into the current Pasadizo branch.
 #
 # Usage: sync-merge.sh <upstream-ref> [conflicts-file]
+#        SYNC_BASE=<commit> sync-merge.sh <upstream-ref> [conflicts-file]
 #
 # Pasadizo carries the rename of .github/pasadizo/rename.sh, so a plain merge
 # of upstream conflicts at every line that upstream changes next to a renamed
 # line (an import added beside a sing-box import, for example). This script
 # merges renamed trees instead:
 #
-#   1. base: the last upstream commit that is in HEAD (git merge-base).
+#   1. base: the last upstream commit that is in HEAD (git merge-base), or
+#      SYNC_BASE when it is set. Upstream sometimes rewrites `testing` (it
+#      did on 2026-11-28 for 1.15.0-alpha.15): the commits Pasadizo merged get
+#      new hashes, git merge-base then finds a much older commit, and the merge
+#      replays weeks of upstream changes against Pasadizo's and conflicts.
+#      Set SYNC_BASE to the upstream commit that main last merged (the parent
+#      of the last "Rename upstream" commit, or the fork point) so that only
+#      the difference between that tree and the new head is merged.
 #   2. Run the same rename.sh on base and on the new upstream commit, and
 #      commit each on top of its upstream commit ("Rename upstream <sha> to
 #      Pasadizo").
@@ -29,7 +37,12 @@ conflicts_file="${2:-conflicts.txt}"
 root="$(git rev-parse --show-toplevel)"
 cd "$root"
 upstream="$(git rev-parse --verify "$upstream_ref^{commit}")"
-base="$(git merge-base HEAD "$upstream")"
+base="$(git rev-parse --verify "${SYNC_BASE:-$(git merge-base HEAD "$upstream")}^{commit}")"
+git merge-base --is-ancestor "$base" HEAD || {
+	echo "sync-merge.sh: base ${base:0:8} is not in HEAD" >&2
+	exit 1
+}
+echo "sync-merge.sh: merging upstream ${upstream:0:8} with base ${base:0:8}" >&2
 
 work="$(mktemp -d)"
 cleanup() {

@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/pasadizo-net/pasadizo/common/badhttp"
+	"github.com/pasadizo-net/pasadizo/common/concealedauth"
 	"github.com/pasadizo-net/pasadizo/common/httpclient"
 	"github.com/pasadizo-net/pasadizo/common/tls"
 	C "github.com/pasadizo-net/pasadizo/constant"
@@ -45,6 +46,7 @@ type ClientOptions struct {
 	Authority              string
 	Username               string
 	Password               string
+	ConcealedAuth          *concealedauth.Signer
 	Path                   string
 	Headers                http.Header
 	Version                int
@@ -76,6 +78,7 @@ type Client struct {
 	server                          M.Socksaddr
 	authorityOverride               string
 	authorization                   string
+	concealed                       *concealedauth.Signer
 	host                            string
 	path                            string
 	headers                         http.Header
@@ -147,6 +150,7 @@ func NewClient(options ClientOptions) (*Client, error) {
 		headers:                options.Headers.Clone(),
 		version:                options.Version,
 		disableVersionFallback: options.DisableVersionFallback,
+		concealed:              options.ConcealedAuth,
 	}
 	if client.headers != nil {
 		client.host = client.headers.Get("Host")
@@ -334,8 +338,12 @@ func (c *Client) connect(ctx context.Context, conn net.Conn, destination M.Socks
 			return nil, err
 		}
 	}
-	maps.Copy(request.Header, buildRequestHeader(c.headers, c.authorization, false))
-	err := request.Write(conn)
+	authorization, err := c.authorizationFor(connExporter(conn), destination.String())
+	if err != nil {
+		return nil, err
+	}
+	maps.Copy(request.Header, buildRequestHeader(c.headers, authorization, false))
+	err = request.Write(conn)
 	if err != nil {
 		return nil, E.Cause(err, "write request")
 	}
@@ -360,6 +368,28 @@ func (c *Client) connect(ctx context.Context, conn net.Conn, destination M.Socks
 		return bufio.NewCachedConn(conn, buffer), nil
 	}
 	return conn, nil
+}
+
+// authorizationFor returns the credentials for a request to authority on the
+// connection that exporter belongs to: a Concealed proof bound to that
+// connection, or the static Basic credentials.
+func (c *Client) authorizationFor(exporter concealedauth.Exporter, authority string) (string, error) {
+	if c.concealed == nil {
+		return c.authorization, nil
+	}
+	return concealedAuthorization(c.concealed, exporter, authority)
+}
+
+func concealedAuthorization(signer *concealedauth.Signer, exporter concealedauth.Exporter, authority string) (string, error) {
+	origin, valid := authorityOrigin("https", authority)
+	if !valid {
+		return "", E.New("concealed authentication: invalid authority: ", authority)
+	}
+	authorization, err := signer.Authorization(exporter, origin)
+	if err != nil {
+		return "", E.Cause(err, "concealed authentication")
+	}
+	return authorization, nil
 }
 
 func buildRequestHeader(headers http.Header, authorization string, originAuthorization bool) http.Header {

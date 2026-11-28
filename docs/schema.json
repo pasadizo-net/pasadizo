@@ -703,6 +703,64 @@
       },
       "additionalProperties": false
     },
+    "ConcealedAuthInboundOptions": {
+      "type": "object",
+      "properties": {
+        "users": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ConcealedAuthUser"
+          }
+        },
+        "fallback": {
+          "$ref": "#/$defs/ServerOptions"
+        },
+        "frontend_source_ip_cidr": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/IPPrefix"
+            },
+            {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/IPPrefix"
+              }
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "ConcealedAuthOutboundOptions": {
+      "type": "object",
+      "properties": {
+        "key_id": {
+          "type": "string"
+        },
+        "private_key": {
+          "type": "string"
+        },
+        "realm": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "ConcealedAuthUser": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "key_id": {
+          "type": "string"
+        },
+        "public_key": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
     "DERPMeshOptions": {
       "type": "object",
       "properties": {
@@ -3593,6 +3651,9 @@
             "password": {
               "type": "string"
             },
+            "concealed_auth": {
+              "$ref": "#/$defs/ConcealedAuthOutboundOptions"
+            },
             "tls": {
               "$ref": "#/$defs/OutboundTLSOptions"
             },
@@ -3788,6 +3849,9 @@
               "items": {
                 "$ref": "#/$defs/User"
               }
+            },
+            "concealed_auth": {
+              "$ref": "#/$defs/ConcealedAuthInboundOptions"
             },
             "version": {
               "anyOf": [
@@ -6155,6 +6219,21 @@
         }
       ]
     },
+    "Hysteria2CarefulResumeOptions": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "lifetime": {
+          "$ref": "#/$defs/Duration"
+        },
+        "state_file": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
     "Hysteria2InboundMultipath": {
       "type": "object",
       "properties": {
@@ -6777,6 +6856,9 @@
                 }
               ]
             },
+            "concealed_auth": {
+              "$ref": "#/$defs/ConcealedAuthInboundOptions"
+            },
             "domain_resolver": {
               "$ref": "#/$defs/DomainResolver"
             },
@@ -7239,6 +7321,9 @@
             },
             "multipath": {
               "$ref": "#/$defs/Hysteria2InboundMultipath"
+            },
+            "careful_resume": {
+              "$ref": "#/$defs/Hysteria2CarefulResumeOptions"
             }
           },
           "required": [
@@ -12088,6 +12173,9 @@
                 "x-tag-reference": "outbound"
               }
             },
+            "stall_timeout": {
+              "$ref": "#/$defs/Duration"
+            },
             "interrupt_exist_connections": {
               "type": "boolean"
             }
@@ -12373,6 +12461,9 @@
             },
             "password": {
               "type": "string"
+            },
+            "concealed_auth": {
+              "$ref": "#/$defs/ConcealedAuthOutboundOptions"
             },
             "tls": {
               "$ref": "#/$defs/OutboundTLSOptions"
@@ -12939,6 +13030,9 @@
             },
             "multipath": {
               "$ref": "#/$defs/Hysteria2OutboundMultipath"
+            },
+            "careful_resume": {
+              "$ref": "#/$defs/Hysteria2CarefulResumeOptions"
             }
           },
           "required": [
@@ -12983,6 +13077,9 @@
               "$ref": "#/$defs/Duration"
             },
             "first_byte_timeout": {
+              "$ref": "#/$defs/Duration"
+            },
+            "stall_timeout": {
               "$ref": "#/$defs/Duration"
             },
             "idle_timeout": {

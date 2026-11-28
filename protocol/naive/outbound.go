@@ -4,7 +4,6 @@ package naive
 
 import (
 	"context"
-	"encoding/pem"
 	"net"
 	"os"
 	"strings"
@@ -13,6 +12,7 @@ import (
 	"github.com/pasadizo-net/pasadizo/adapter"
 	"github.com/pasadizo-net/pasadizo/adapter/outbound"
 	"github.com/pasadizo-net/pasadizo/common/dialer"
+	"github.com/pasadizo-net/pasadizo/common/tls"
 	C "github.com/pasadizo-net/pasadizo/constant"
 	"github.com/pasadizo-net/pasadizo/dns"
 	"github.com/pasadizo-net/pasadizo/log"
@@ -163,11 +163,10 @@ func NewOutbound(ctx context.Context, router adapter.Router, logger log.ContextL
 			echConfig = content
 		}
 		if len(echConfig) > 0 {
-			block, rest := pem.Decode(echConfig)
-			if block == nil || block.Type != "ECH CONFIGS" || len(rest) > 0 {
-				return nil, E.New("invalid ECH configs pem")
+			echConfigList, err = tls.ParseECHConfigListPEM(echConfig)
+			if err != nil {
+				return nil, err
 			}
-			echConfigList = block.Bytes
 		}
 	}
 	var quicCongestionControl cronet.QUICCongestionControl

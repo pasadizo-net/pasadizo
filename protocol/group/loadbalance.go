@@ -70,6 +70,7 @@ type LoadBalance struct {
 	listeners                    healthListeners
 	breaker                      *failureBreaker
 	firstByteTimeout             time.Duration
+	stallTimeout                 time.Duration
 }
 
 func NewLoadBalance(ctx context.Context, router adapter.Router, logger log.ContextLogger, tag string, options option.LoadBalanceOutboundOptions) (adapter.Outbound, error) {
@@ -86,6 +87,11 @@ func NewLoadBalance(ctx context.Context, router adapter.Router, logger log.Conte
 		timeout:                      time.Duration(options.Timeout),
 		idleTimeout:                  time.Duration(options.IdleTimeout),
 		interruptExternalConnections: options.InterruptExistConnections,
+		stallTimeout:                 time.Duration(options.StallTimeout),
+	}
+	err := checkStallTimeout(outbound.stallTimeout)
+	if err != nil {
+		return nil, err
 	}
 	if options.FailureThreshold > 0 {
 		failureWindow := time.Duration(options.FailureWindow)
@@ -141,6 +147,9 @@ func (s *LoadBalance) Start(stage adapter.StartStage, scope *adapter.Scope) erro
 	case adapter.StartStateStarted:
 		s.group.PostStart()
 		scope.Add(s.group.Close)
+		if s.stallTimeout > 0 {
+			go s.group.watchStalls(s.stallTimeout, s.PerformUpdateCheck)
+		}
 	}
 	return nil
 }

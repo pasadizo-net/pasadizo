@@ -19,6 +19,7 @@ import (
 	"github.com/pasadizo-net/pasadizo/log"
 	"github.com/pasadizo-net/pasadizo/option"
 	qtls "github.com/sagernet/sing-quic"
+	congestion "github.com/sagernet/sing-quic/congestion_meta2"
 	"github.com/sagernet/sing-quic/hysteria"
 	"github.com/sagernet/sing-quic/hysteria2"
 	"github.com/sagernet/sing-quic/hysteria2/realm"
@@ -43,6 +44,8 @@ type Inbound struct {
 	tlsConfig    tls.ServerConfig
 	service      *hysteria2.Service[int]
 	userNameList []string
+
+	carefulResume *congestion.CarefulResumeStore
 }
 
 func NewInbound(ctx context.Context, router adapter.Router, logger log.ContextLogger, tag string, options option.Hysteria2InboundOptions) (adapter.Inbound, error) {
@@ -180,6 +183,10 @@ func NewInbound(ctx context.Context, router adapter.Router, logger log.ContextLo
 			}
 		}
 	}
+	inbound.carefulResume, err = newCarefulResumeStore(ctx, logger, options.CarefulResume)
+	if err != nil {
+		return nil, err
+	}
 	hysteriaService, err := hysteria2.NewService[int](hysteria2.ServiceOptions{
 		Context:            ctx,
 		Logger:             logger,
@@ -207,6 +214,7 @@ func NewInbound(ctx context.Context, router adapter.Router, logger log.ContextLo
 		BBRProfile:            options.BBRProfile,
 		RealmOptions:          realmOptions,
 		Multipath:             options.Multipath != nil && options.Multipath.Enabled,
+		CarefulResume:         inbound.carefulResume,
 	})
 	if err != nil {
 		return nil, err
@@ -272,6 +280,12 @@ func (h *Inbound) NewPacketConnectionEx(ctx context.Context, conn N.PacketConn, 
 func (h *Inbound) Start(stage adapter.StartStage, scope *adapter.Scope) error {
 	if stage != adapter.StartStateStart {
 		return nil
+	}
+	if h.carefulResume != nil {
+		// Added first, so it closes last, after the service whose
+		// connections write to it.
+		h.carefulResume.Start()
+		scope.Add(h.carefulResume.Close)
 	}
 	if h.tlsConfig != nil {
 		err := h.tlsConfig.Start()

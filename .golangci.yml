@@ -1,6 +1,6 @@
 version: "2"
 run:
-  go: "1.26"
+  go: "1.27"
   build-tags:
     - with_quic
     - with_dhcp
@@ -24,6 +24,10 @@ linters:
     modernize:
       disable:
         - omitzero # nested struct omitempty -> omitzero changes JSON output semantics
+        # Go 1.27 lets a composite literal name a promoted field. Applying it rewrites
+        # about 100 literals in upstream sing-box code, which the weekly upstream sync
+        # would then conflict with; enable it again once upstream moves to Go 1.27.
+        - embedlit
     staticcheck:
       checks:
         - all

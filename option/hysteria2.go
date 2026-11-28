@@ -28,6 +28,17 @@ type Hysteria2InboundOptions struct {
 	BrutalDebug bool                       `json:"brutal_debug,omitempty"`
 	Realm       *Hysteria2InboundRealm     `json:"realm,omitempty"`
 	Multipath   *Hysteria2InboundMultipath `json:"multipath,omitempty"`
+
+	CarefulResume *Hysteria2CarefulResumeOptions `json:"careful_resume,omitempty"`
+}
+
+// Hysteria2CarefulResumeOptions turns on Careful Resume (RFC 9959) for the
+// BBR sender: a new connection to a peer that an earlier connection measured
+// starts from half of the saved bottleneck bandwidth instead of slow start.
+type Hysteria2CarefulResumeOptions struct {
+	Enabled   bool               `json:"enabled,omitempty"`
+	Lifetime  badoption.Duration `json:"lifetime,omitempty"`
+	StateFile string             `json:"state_file,omitempty"`
 }
 
 // Hysteria2InboundMultipath accepts the paths a client adds to its QUIC connection
@@ -244,6 +255,8 @@ type Hysteria2OutboundOptions struct {
 	DisableChromeParrot bool                        `json:"disable_chrome_parrot,omitempty"`
 	Realm               *Hysteria2Realm             `json:"realm,omitempty"`
 	Multipath           *Hysteria2OutboundMultipath `json:"multipath,omitempty"`
+
+	CarefulResume *Hysteria2CarefulResumeOptions `json:"careful_resume,omitempty"`
 }
 
 type HysteriaRealmUser struct {

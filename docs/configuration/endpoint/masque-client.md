@@ -15,6 +15,7 @@
   "server_port": 443,
   "username": "",
   "password": "",
+  "concealed_auth": {},
   "path": "",
   "headers": {},
   "version": 0,
@@ -60,6 +61,12 @@ Basic authorization username.
 
 Basic authorization password.
 
+### concealed_auth
+
+!!! question "Pasadizo only"
+
+[Concealed authentication](/configuration/shared/concealed-auth/#outbound) (RFC 9729) with a private key, instead of `username` and `password`. TLS is required.
+
 ### path
 
 URI template path of the IP proxying resource, may contain the `target` and `ipproto` variables.
@@ -91,6 +98,8 @@ TLS configuration, see [TLS](/configuration/shared/tls/#outbound).
 Required for HTTP/3.
 
 ### address
+
+!!! question "Pasadizo only"
 
 List of IP prefixes to use as the local addresses of the interface.
 
@@ -130,6 +139,8 @@ Tunnel MTU.
 Allow the endpoint to be disconnected when necessary.
 
 ### warp
+
+!!! question "Pasadizo only"
 
 Connect to the Cloudflare WARP MASQUE endpoint.
 

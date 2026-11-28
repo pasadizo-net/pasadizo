@@ -39,10 +39,15 @@ func NewOutbound(ctx context.Context, router adapter.Router, logger log.ContextL
 	if err != nil {
 		return nil, err
 	}
+	concealedAuth, err := http.NewConcealedAuthSigner(options.ConcealedAuth, options.TLS != nil && options.TLS.Enabled, options.Username)
+	if err != nil {
+		return nil, err
+	}
 	headers := options.Headers.Build()
 	client, err := http.NewClientWithTLS(ctx, logger, outboundDialer, options.ServerOptions, common.PtrValueOrDefault(options.TLS), options.DomainResolver, http.ClientOptions{
 		Username:               options.Username,
 		Password:               options.Password,
+		ConcealedAuth:          concealedAuth,
 		Path:                   options.Path,
 		Headers:                headers,
 		Version:                http.ResolveVersion(options.Version, options.Path, headers.Get("Host")),

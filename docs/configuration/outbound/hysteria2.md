@@ -1,6 +1,7 @@
-!!! quote "Changes in sing-box 1.15.0"
+!!! quote "Changes in Pasadizo"
 
     :material-plus: [connections](#connections)  
+    :material-plus: [careful_resume](#careful_resume)  
     :material-plus: [multipath](#multipath)
 
 !!! quote "Changes in sing-box 1.14.0"
@@ -46,6 +47,11 @@
   "bbr_profile": "",
   "brutal_debug": false,
   "disable_chrome_parrot": false,
+  "careful_resume": {
+    "enabled": false,
+    "lifetime": "",
+    "state_file": ""
+  },
   "realm": {
     "server_url": "https://realm.example.com",
     "token": "",
@@ -176,7 +182,7 @@ Both is enabled by default.
 
 #### connections
 
-!!! question "Since sing-box 1.15.0"
+!!! question "Pasadizo only"
 
 Number of independent Hysteria2 connections to keep to the server.
 
@@ -227,6 +233,36 @@ maximums.
 
     Chrome does not declare support for Ed25519, so a server using an Ed25519 certificate will fail the
     handshake. Use an ECDSA or RSA certificate instead.
+
+#### careful_resume
+
+!!! question "Pasadizo only"
+
+Careful Resume ([RFC 9959](https://www.rfc-editor.org/rfc/rfc9959)) for the BBR congestion control. A new QUIC connection normally starts BBR from slow start, which on a path of 100 ms and 200 Mbit/s takes about two seconds to reach full speed. With Careful Resume, Pasadizo saves the bottleneck bandwidth and the minimum round trip time that BBR measures to each peer IP address (the /64 of an IPv6 address), for at most 4096 peers, and a new connection to the same address starts from half of that bandwidth, once the path is confirmed, instead of from slow start.
+
+The connection goes through the phases of the RFC. It first sends as plain BBR until the initial window is acknowledged, and uses the saved values only when the round trip time is more than half and at most ten times the saved one. Then, for at most one round trip, it sends at half the saved bandwidth. If that meets congestion, the saved values are deleted and the connection falls back to half of what was delivered. Loss counts as congestion only when at least 8 packets and more than 5 % of the bytes were lost, because the paths this is for lose a few per cent at random. Only one connection at a time resumes from one set of saved values.
+
+It applies to the data this outbound sends to the server (uploads) over BBR, that is when `up_mbps` is not set; with `up_mbps` the upload uses Brutal, which has no slow start. Downloads are sent by the server, so Careful Resume for them is set on the server: the `careful_resume` of a Pasadizo Hysteria2 inbound, or `congestion.carefulResume` of [Pasadizo's Hysteria](https://github.com/pasadizo-net/hysteria). The connections of `connections` share one set of saved values.
+
+Measured with netem at 200 Mbit/s, 100 ms and 1 % loss, a new connection after a download carried 12.1 MB in its first second instead of 6.7 MB, and reached 90 % of full speed in 0.9 s instead of 1.6 s.
+
+Set `log.level` to `debug` to see each phase change.
+
+#### careful_resume.enabled
+
+Enable Careful Resume.
+
+#### careful_resume.lifetime
+
+How long saved values may be reused after they were last measured.
+
+`10m` is used by default.
+
+#### careful_resume.state_file
+
+A file that keeps the saved values across restarts. It is read at start and written every 10 seconds after a change and at stop. A file that cannot be read or written is logged as a warning and does not stop Pasadizo; values saved with a time in the future count as expired. Every inbound and outbound needs a file of its own.
+
+Not kept if empty.
 
 #### realm
 
@@ -302,7 +338,7 @@ See [HTTP Client](/configuration/shared/http-client/) for details.
 
 #### multipath
 
-!!! question "Since sing-box 1.15.0"
+!!! question "Pasadizo only"
 
 Add more network paths to the QUIC connection with the multipath extension of [RFC 10069](https://www.rfc-editor.org/rfc/rfc10069), for example a second uplink of another provider.
 The outbound's own Dial Fields open the first path; each entry of `paths` opens one more, to the same server address.

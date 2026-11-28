@@ -69,6 +69,9 @@ type outboundMetrics struct {
 	Download    int64
 	Connections int
 	Delay       *adapter.URLTestHistory
+	// Transport is nil for an outbound that does not report on its
+	// transport connections.
+	Transport []adapter.TransportStats
 }
 
 type groupMetrics struct {
@@ -143,13 +146,20 @@ func (c *Collector) snapshot() *metricsSnapshot {
 		}
 		statistics := outboundTotal[tag]
 		delete(outboundTotal, tag)
-		snapshot.Outbounds = append(snapshot.Outbounds, outboundMetrics{
+		outboundMetric := outboundMetrics{
 			Tag:         tag,
 			Upload:      statistics.Upload,
 			Download:    statistics.Download,
 			Connections: statistics.Connections,
 			Delay:       c.urlTestHistory.LoadURLTestHistory(tag),
-		})
+		}
+		if withStats, hasStats := detour.(adapter.OutboundWithTransportStats); hasStats {
+			outboundMetric.Transport = withStats.TransportStats()
+			if outboundMetric.Transport == nil {
+				outboundMetric.Transport = []adapter.TransportStats{}
+			}
+		}
+		snapshot.Outbounds = append(snapshot.Outbounds, outboundMetric)
 	}
 	// Traffic of outbounds that are gone or have no tag.
 	for tag, statistics := range outboundTotal {
@@ -207,6 +217,36 @@ func writeMetrics(writer io.Writer, snapshot *metricsSnapshot) {
 			w.sample("sing_box_outbound_delay_timestamp_seconds", []string{"outbound", outbound.Tag}, strconv.FormatFloat(float64(outbound.Delay.Time.UnixMilli())/1000, 'f', -1, 64))
 		}
 	}
+	writeTransport := func(name string, kind string, help string, value func(stats []adapter.TransportStats) string) {
+		w.header(name, kind, help)
+		for _, outbound := range snapshot.Outbounds {
+			if outbound.Transport != nil {
+				w.sample(name, []string{"outbound", outbound.Tag}, value(outbound.Transport))
+			}
+		}
+	}
+	sum := func(field func(stats adapter.TransportStats) uint64) func(stats []adapter.TransportStats) string {
+		return func(stats []adapter.TransportStats) string {
+			var total uint64
+			for _, it := range stats {
+				total += field(it)
+			}
+			return strconv.FormatUint(total, 10)
+		}
+	}
+	writeTransport("sing_box_outbound_transport_connections", "gauge", "Open transport connections (QUIC) of the outbound to its server.", func(stats []adapter.TransportStats) string {
+		return strconv.Itoa(len(stats))
+	})
+	writeTransport("sing_box_outbound_transport_rtt_milliseconds", "gauge", "Smoothed round trip time of the outbound's transport connections, the highest of them; 0 without a connection.", func(stats []adapter.TransportStats) string {
+		var highest time.Duration
+		for _, it := range stats {
+			highest = max(highest, it.SmoothedRTT)
+		}
+		return strconv.FormatFloat(float64(highest.Microseconds())/1000, 'f', -1, 64)
+	})
+	writeTransport("sing_box_outbound_transport_packets_sent_total", "counter", "Packets sent on the outbound's open transport connections. Starts again at zero with a new connection.", sum(func(stats adapter.TransportStats) uint64 { return stats.PacketsSent }))
+	writeTransport("sing_box_outbound_transport_packets_received_total", "counter", "Packets received on the outbound's open transport connections. Starts again at zero with a new connection.", sum(func(stats adapter.TransportStats) uint64 { return stats.PacketsReceived }))
+	writeTransport("sing_box_outbound_transport_packets_lost_total", "counter", "Packets declared lost on the outbound's open transport connections. Starts again at zero with a new connection.", sum(func(stats adapter.TransportStats) uint64 { return stats.PacketsLost }))
 	w.header("sing_box_group_selected", "gauge", "Whether the member is the selected outbound of the group (1) or not (0).")
 	for _, group := range snapshot.Groups {
 		for _, member := range group.All {

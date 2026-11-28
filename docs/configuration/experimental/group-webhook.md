@@ -1,4 +1,4 @@
-!!! question "Since sing-box 1.15.0"
+!!! question "Pasadizo only"
 
 Group webhook sends an HTTP `POST` request when an outbound group changes its selected outbound,
 or when a member of a [URLTest](/configuration/outbound/urltest/), [Fallback](/configuration/outbound/fallback/)

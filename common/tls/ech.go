@@ -5,7 +5,6 @@ package tls
 import (
 	"context"
 	"crypto/tls"
-	"encoding/pem"
 	"net"
 	"strings"
 	"sync"
@@ -41,11 +40,11 @@ func parseECHClientConfig(ctx context.Context, clientConfig ECHCapableConfig, op
 		return nil, E.New("legacy ECH options are deprecated in sing-box 1.12.0 and removed in sing-box 1.13.0")
 	}
 	if len(echConfig) > 0 {
-		block, rest := pem.Decode(echConfig)
-		if block == nil || block.Type != "ECH CONFIGS" || len(rest) > 0 {
-			return nil, E.New("invalid ECH configs pem")
+		echConfigList, err := ParseECHConfigListPEM(echConfig)
+		if err != nil {
+			return nil, err
 		}
-		clientConfig.SetECHConfigList(block.Bytes)
+		clientConfig.SetECHConfigList(echConfigList)
 		return clientConfig, nil
 	} else {
 		if directResolver && (domainResolver == nil || domainResolver.Server == "") {
@@ -104,15 +103,7 @@ func (c *STDServerConfig) setECHServerConfig(echKey []byte) error {
 }
 
 func parseECHKeys(echKey []byte) ([]tls.EncryptedClientHelloKey, error) {
-	block, _ := pem.Decode(echKey)
-	if block == nil || block.Type != "ECH KEYS" {
-		return nil, E.New("invalid ECH keys pem")
-	}
-	echKeys, err := UnmarshalECHKeys(block.Bytes)
-	if err != nil {
-		return nil, E.Cause(err, "parse ECH keys")
-	}
-	return echKeys, nil
+	return ParseECHKeysPEM(echKey)
 }
 
 type echClientState struct {

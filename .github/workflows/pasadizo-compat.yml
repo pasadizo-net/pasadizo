@@ -1,0 +1,58 @@
+# Wire compatibility with upstream sing-box: Pasadizo's servers must serve
+# clients that run upstream sing-box (or apps built on it), and Pasadizo's
+# clients must reach upstream servers. .github/pasadizo/wire-compat.py runs
+# each protocol the house uses on 127.0.0.1, with a Pasadizo server and an
+# upstream client and the reverse, against the upstream release binaries
+# below, and checks a TCP fetch and a DNS query over UDP through each pair.
+#
+# Move the versions forward with the weekly upstream sync: UPSTREAM_STABLE is
+# upstream's latest release, UPSTREAM_TESTING its latest pre-release.
+name: pasadizo-compat
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "41 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  wire:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      UPSTREAM_STABLE: 1.14.6
+      UPSTREAM_TESTING: 1.15.0-alpha.15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+        with:
+          go-version-file: go.mod
+      - name: Download upstream sing-box and check the release digests
+        run: |
+          for version in "$UPSTREAM_STABLE" "$UPSTREAM_TESTING"; do
+            asset="sing-box-${version}-linux-amd64.tar.gz"
+            gh release download "v${version}" --repo SagerNet/sing-box --pattern "$asset" --dir upstream
+            digest="$(gh api "repos/SagerNet/sing-box/releases/tags/v${version}" \
+              --jq ".assets[] | select(.name == \"${asset}\") | .digest")"
+            echo "${digest#sha256:}  upstream/${asset}" | sha256sum -c -
+            tar -xzf "upstream/${asset}" -C upstream
+          done
+      - name: Build Pasadizo (release tags, NaiveProxy over purego)
+        run: |
+          mkdir -p build
+          CGO_ENABLED=0 go build -trimpath -tags "$(cat release/DEFAULT_BUILD_TAGS),with_purego" \
+            -ldflags "$(cat release/LDFLAGS) -s -w -buildid=" -o build/pasadizo ./cmd/pasadizo
+          # The same libcronet.so as upstream's release, from .github/CRONET_GO_VERSION.
+          cp "upstream/sing-box-${UPSTREAM_TESTING}-linux-amd64/libcronet.so" build/
+      - name: Wire compatibility
+        run: |
+          python3 -I .github/pasadizo/wire-compat.py --naive \
+            --pasadizo build/pasadizo \
+            --upstream "sing-box-${UPSTREAM_STABLE}=upstream/sing-box-${UPSTREAM_STABLE}-linux-amd64/sing-box" \
+            --upstream "sing-box-${UPSTREAM_TESTING}=upstream/sing-box-${UPSTREAM_TESTING}-linux-amd64/sing-box"

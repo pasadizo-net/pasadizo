@@ -25,6 +25,8 @@ jobs:
         run: |
           .github/pasadizo/rename.sh
           git diff --exit-code
+      - name: The replaced sing-quic contains the commit sing-box pins
+        run: .github/pasadizo/check-sing-quic.sh
       - name: Build (linux amd64 and arm64, release tags)
         run: |
           for arch in amd64 arm64; do
@@ -41,7 +43,7 @@ jobs:
             -o /dev/null ./cmd/pasadizo
       - name: Vet and test the packages Pasadizo changes
         run: |
-          pkgs=(. ./adapter/... ./common/fairshare/... ./common/trafficcontrol/... ./constant/...
+          pkgs=(. ./adapter/... ./common/concealedauth/... ./common/fairshare/... ./common/tls/ ./common/trafficcontrol/... ./constant/...
             ./experimental/clashapi/... ./experimental/groupwebhook/... ./experimental/metrics/... ./include/... ./option/...
             ./protocol/gost/... ./protocol/group/... ./protocol/http/... ./protocol/hysteria2/... ./protocol/masque/... ./route/...
             ./transport/http/... ./transport/masque/...)

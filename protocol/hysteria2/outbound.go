@@ -18,6 +18,7 @@ import (
 	"github.com/pasadizo-net/pasadizo/log"
 	"github.com/pasadizo-net/pasadizo/option"
 	qtls "github.com/sagernet/sing-quic"
+	congestion "github.com/sagernet/sing-quic/congestion_meta2"
 	"github.com/sagernet/sing-quic/hysteria"
 	"github.com/sagernet/sing-quic/hysteria2"
 	"github.com/sagernet/sing-quic/hysteria2/realm"
@@ -35,10 +36,11 @@ func RegisterOutbound(registry *outbound.Registry) {
 }
 
 var (
-	_ adapter.Outbound                = (*Outbound)(nil)
-	_ adapter.InterfaceUpdateListener = (*Outbound)(nil)
-	_ adapter.IdleConnectionKeeper    = (*Outbound)(nil)
-	_ adapter.OutboundWithMultiplex   = (*Outbound)(nil)
+	_ adapter.Outbound                   = (*Outbound)(nil)
+	_ adapter.InterfaceUpdateListener    = (*Outbound)(nil)
+	_ adapter.IdleConnectionKeeper       = (*Outbound)(nil)
+	_ adapter.OutboundWithMultiplex      = (*Outbound)(nil)
+	_ adapter.OutboundWithTransportStats = (*Outbound)(nil)
 )
 
 type Outbound struct {
@@ -46,6 +48,8 @@ type Outbound struct {
 	logger  logger.ContextLogger
 	clients []*hysteria2.Client
 	next    atomic.Uint32
+
+	carefulResume *congestion.CarefulResumeStore
 }
 
 func NewOutbound(ctx context.Context, router adapter.Router, logger log.ContextLogger, tag string, options option.Hysteria2OutboundOptions) (adapter.Outbound, error) {
@@ -144,6 +148,12 @@ func NewOutbound(ctx context.Context, router adapter.Router, logger log.ContextL
 		return nil, err
 	}
 	networkList := options.Network.Build()
+	// One store for every connection of the pool: they share the path, and
+	// only one of them at a time resumes from the saved parameters.
+	carefulResume, err := newCarefulResumeStore(ctx, logger, options.CarefulResume)
+	if err != nil {
+		return nil, err
+	}
 	clientOptions := hysteria2.ClientOptions{
 		Context:            ctx,
 		Dialer:             outboundDialer,
@@ -175,6 +185,7 @@ func NewOutbound(ctx context.Context, router adapter.Router, logger log.ContextL
 		ChromeParrot:   !options.DisableChromeParrot,
 		RealmOptions:   realmOptions,
 		MultipathPaths: multipathPaths,
+		CarefulResume:  carefulResume,
 	}
 	clients := make([]*hysteria2.Client, connections)
 	for i := range clients {
@@ -184,9 +195,10 @@ func NewOutbound(ctx context.Context, router adapter.Router, logger log.ContextL
 		}
 	}
 	return &Outbound{
-		Adapter: outbound.NewAdapterWithDialerOptions(C.TypeHysteria2, tag, networkList, options.DialerOptions),
-		logger:  logger,
-		clients: clients,
+		Adapter:       outbound.NewAdapterWithDialerOptions(C.TypeHysteria2, tag, networkList, options.DialerOptions),
+		logger:        logger,
+		clients:       clients,
+		carefulResume: carefulResume,
 	}, nil
 }
 
@@ -251,6 +263,27 @@ func (h *Outbound) InterfaceUpdated(ctx context.Context) {
 	}
 }
 
+// TransportStats returns the statistics of each QUIC connection of the
+// outbound that is open.
+func (h *Outbound) TransportStats() []adapter.TransportStats {
+	stats := make([]adapter.TransportStats, 0, len(h.clients))
+	for _, client := range h.clients {
+		connectionStats, connected := client.ConnectionStats()
+		if !connected {
+			continue
+		}
+		stats = append(stats, adapter.TransportStats{
+			PacketsSent:     connectionStats.PacketsSent,
+			PacketsReceived: connectionStats.PacketsReceived,
+			PacketsLost:     connectionStats.PacketsLost,
+			BytesSent:       connectionStats.BytesSent,
+			BytesReceived:   connectionStats.BytesReceived,
+			SmoothedRTT:     connectionStats.SmoothedRTT,
+		})
+	}
+	return stats
+}
+
 func (h *Outbound) MultiplexEnabled() bool {
 	return true
 }
@@ -270,6 +303,12 @@ func (h *Outbound) CloseIdleConnections() {
 func (h *Outbound) Start(stage adapter.StartStage, scope *adapter.Scope) error {
 	if stage != adapter.StartStateInitialize {
 		return nil
+	}
+	if h.carefulResume != nil {
+		// Added first, so it closes last, after the clients whose
+		// connections write to it.
+		h.carefulResume.Start()
+		scope.Add(h.carefulResume.Close)
 	}
 	scope.Add(func() error {
 		for _, client := range h.clients {

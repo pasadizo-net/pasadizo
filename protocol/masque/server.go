@@ -75,6 +75,13 @@ func NewServerEndpoint(ctx context.Context, router adapter.Router, logger log.Co
 	if options.HTTP3Options.InitialPacketSize == 0 {
 		options.HTTP3Options.InitialPacketSize = min(int(options.MTU)+masque.QUICPacketOverhead, math.MaxUint16)
 	}
+	concealedAuth, err := http.NewConcealedAuthOptions(options.ConcealedAuth)
+	if err != nil {
+		return nil, err
+	}
+	if concealedAuth != nil && (options.TLS == nil || !options.TLS.Enabled) && len(concealedAuth.FrontendSourceIPCIDR) == 0 {
+		return nil, E.New("concealed_auth requires TLS, or frontend_source_ip_cidr behind a TLS frontend")
+	}
 	serverEndpoint := &ServerEndpoint{
 		endpointBase: endpointBase{
 			Adapter: endpoint.NewAdapter(C.TypeMASQUEServer, tag, []string{N.NetworkTCP, N.NetworkUDP, N.NetworkICMP}, nil),
@@ -104,6 +111,7 @@ func NewServerEndpoint(ctx context.Context, router adapter.Router, logger log.Co
 	serverEndpoint.server = server
 	serverEndpoint.httpServer = http.NewServer(http.ServerOptions{
 		Authenticator: auth.NewAuthenticator(options.Users),
+		ConcealedAuth: concealedAuth,
 		Logger:        logger,
 		HTTP1:         serveHTTP1,
 		HTTP2:         serveHTTP2,

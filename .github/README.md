@@ -25,10 +25,13 @@ Pasadizo ("secret passage" in Spanish) is a proxy platform derived from [sing-bo
 | `fallback` outbound group: the first healthy member in a fixed order, with `recover_after` before it moves back up | `"type": "fallback"` | [docs/configuration/outbound/fallback.md](../docs/configuration/outbound/fallback.md) |
 | Lazy members of a `fallback` group: a backup on a metered or slow link is tested only while no member before it is available, so it costs no traffic while the others work | `"lazy": ["lte"]` on a `fallback` outbound | [docs/configuration/outbound/fallback.md](../docs/configuration/outbound/fallback.md#lazy) |
 | First byte timeout for the `loadbalance` circuit breaker: a connection that was written to and got no byte back counts as a failure of its member, which is the only failure a Hysteria2 or TUIC member on a dead path shows | `"first_byte_timeout": "5s"` on a `loadbalance` outbound | [docs/configuration/outbound/loadbalance.md](../docs/configuration/outbound/loadbalance.md#first_byte_timeout) |
+| Stall timeout for `loadbalance` and `fallback`: a Hysteria2 member whose QUIC connection sends packets and receives none is unavailable at once, found from the connection's own counters without test traffic | `"stall_timeout": "5s"` | [docs/configuration/outbound/loadbalance.md](../docs/configuration/outbound/loadbalance.md#stall_timeout) |
+| Round trip time, packets sent, received and lost, and the number of open QUIC connections per Hysteria2 outbound, in the Prometheus metrics | `sing_box_outbound_transport_*` | [docs/configuration/experimental/metrics.md](../docs/configuration/experimental/metrics.md#metrics) |
 | A reload (`SIGHUP`) that changes only route and DNS rules replaces them in the running instance and keeps every connection | `kill -HUP`, `systemctl reload` | [docs/configuration/reload.md](../docs/configuration/reload.md) |
 | `gost` outbound: a node of a gost v3 chain, an `http` handler on an `mtls` or `mtcp` listener (smux, HTTP `CONNECT`), chained with `detour` | `"type": "gost"` | [docs/configuration/outbound/gost.md](../docs/configuration/outbound/gost.md) |
 | Outbound groups do not fail over when the proxy server answered but could not reach the destination | `adapter.DestinationError` | [docs/configuration/outbound/gost.md](../docs/configuration/outbound/gost.md) |
 | Several QUIC connections per Hysteria2 outbound, so one exit is not limited by one connection | `"connections": 4` on a `hysteria2` outbound | [docs/configuration/outbound/hysteria2.md](../docs/configuration/outbound/hysteria2.md) |
+| Careful Resume (RFC 9959) for Hysteria2: a new connection to a peer that an earlier one measured starts BBR from half the saved bottleneck bandwidth, not from slow start, and retreats safely when the path has changed | `"careful_resume": {"enabled": true}` on a `hysteria2` inbound or outbound | [docs/configuration/inbound/hysteria2.md](../docs/configuration/inbound/hysteria2.md#careful_resume) |
 | One Hysteria2 connection over several network paths with multipath QUIC ([RFC 10069](https://www.rfc-editor.org/rfc/rfc10069)), from [pasadizo-net/quic-go](https://github.com/pasadizo-net/quic-go) and [pasadizo-net/sing-quic](https://github.com/pasadizo-net/sing-quic): the paths are aggregated, and when one dies its traffic moves to the others within about half a second, without closing a connection. The server is Pasadizo's own Hysteria2 inbound | `"multipath": {"paths": [{"bind_interface": "lte0"}]}` on a `hysteria2` outbound, `"multipath": {"enabled": true}` on the inbound | [docs/configuration/outbound/hysteria2.md](../docs/configuration/outbound/hysteria2.md#multipath) |
 | A webhook for outbound group changes (selected member, member health) | `experimental.group_webhook` | [docs/configuration/experimental/group-webhook.md](../docs/configuration/experimental/group-webhook.md) |
 | The group webhook signs each request with a shared secret (HMAC-SHA256 over a timestamp and the body) and never follows a redirect | `"secret"` in `experimental.group_webhook` | [docs/configuration/experimental/group-webhook.md](../docs/configuration/experimental/group-webhook.md#secret) |
@@ -37,9 +40,53 @@ Pasadizo ("secret passage" in Spanish) is a proxy platform derived from [sing-bo
 | Prometheus metrics in the Clash API | `GET /metrics` | [docs/configuration/experimental/clash-api.md](../docs/configuration/experimental/clash-api.md) |
 | A standalone, read-only Prometheus metrics listener, with optional basic authentication, that does not expose the Clash API | `experimental.metrics` | [docs/configuration/experimental/metrics.md](../docs/configuration/experimental/metrics.md) |
 | Connections and errors per inbound, dials, dial errors and a dial duration histogram per outbound, and the process start time, in the Prometheus metrics | `sing_box_inbound_*`, `sing_box_outbound_dial*`, `process_start_time_seconds` | [docs/configuration/experimental/metrics.md](../docs/configuration/experimental/metrics.md#metrics) |
+| ECH keys and configs in the PEM format of RFC 9934 (`ECHCONFIG`, and a PKCS #8 key followed by it), which OpenSSL reads too; `generate ech-keypair --format rfc9934` writes them | `"ech": {"key": [...]}`, `"ech": {"config": [...]}` | [docs/configuration/shared/tls.md](../docs/configuration/shared/tls.md#ech) |
+| Concealed HTTP Authentication (RFC 9729) on the HTTP inbound and outbound and the MASQUE server and client: a key bound to the TLS session instead of a password, and a decoy answer instead of `401` or `407` | `concealed_auth` | [docs/configuration/shared/concealed-auth.md](../docs/configuration/shared/concealed-auth.md) |
+| Sources that need no password on the HTTP inbound | `auth_exempt_source_ip_cidr` | [docs/configuration/inbound/http.md](../docs/configuration/inbound/http.md#auth_exempt_source_ip_cidr) |
+| The timeout of one URL test of a `urltest` group | `"timeout"` on a `urltest` outbound | [docs/configuration/outbound/urltest.md](../docs/configuration/outbound/urltest.md#timeout) |
 | Cloudflare WARP mode for the MASQUE client (incomplete: the QUIC library still refuses the extended CONNECT) | `masque-client` endpoint | [docs/configuration/endpoint/masque-client.md](../docs/configuration/endpoint/masque-client.md) |
 
 Each feature is one commit on top of upstream, so it can be read, reverted or offered upstream on its own.
+
+## Compatibility with sing-box
+
+Pasadizo reads every configuration that upstream sing-box of the same version reads, and speaks each protocol the way upstream does: a Pasadizo server serves upstream sing-box clients (and apps built on sing-box), and a Pasadizo client reaches upstream servers. The workflow `pasadizo-compat` (`.github/pasadizo/wire-compat.py`) checks the second part on every pull request and every week. It runs each protocol below on `127.0.0.1` with a Pasadizo server and an upstream client and the reverse, against upstream's latest release and pre-release binaries, and sends a TCP fetch and a DNS query over UDP through each pair:
+
+| Protocol | Options | Pasadizo server, upstream client | Upstream server, Pasadizo client |
+| --- | --- | --- | --- |
+| Hysteria2 | `salamander` obfs, Brutal (`up_mbps`/`down_mbps`) | works | works |
+| Hysteria2 | `gecko` obfs, BBR | works | works |
+| Hysteria2 | `gecko` obfs, `careful_resume` on the Pasadizo side | works | works |
+| AnyTLS | uTLS Chrome, without ECH, with ECH in sing-box's PEM, with ECH in RFC 9934 PEM on the Pasadizo side | works | works |
+| Trojan, VLESS | WebSocket, uTLS Chrome, h2mux multiplex | works | works |
+| Shadowsocks | `2022-blake3-aes-128-gcm` | works | works |
+| TUIC | BBR | works | works |
+| VLESS | REALITY, `xtls-rprx-vision` | works | works |
+| NaiveProxy | HTTP/2, UDP over TCP | works | works |
+
+TCP Brutal on a multiplexed connection is not in the workflow, because it needs the tcp-brutal kernel module on the server; the exchange that turns it on is upstream's (sing-mux), and Pasadizo does not change it.
+
+What only Pasadizo reads. Upstream decodes a configuration strictly, so each of these makes upstream refuse the whole file (`json: unknown field` or `unknown outbound type`), while Pasadizo reads every upstream file:
+
+- Outbound types `loadbalance`, `fallback` and `gost`.
+- `experimental.metrics` and `experimental.group_webhook`.
+- `careful_resume` and `connections` on `hysteria2`; `timeout` on `urltest`; `fair_share` in a route action; `auth_exempt_source_ip_cidr` and `concealed_auth` on `http`; `concealed_auth`, `address` and `warp` on the MASQUE endpoints.
+- ECH in the PEM format of RFC 9934. Upstream reads only `ECH CONFIGS` and `ECH KEYS`. An `ECHCONFIG` block holds the same bytes as an `ECH CONFIGS` block, so rename its label for an upstream client. An RFC 9934 server key cannot be renamed; for an upstream server, use a key from `pasadizo generate ech-keypair` without `--format`.
+
+What an upstream peer cannot use:
+
+- `careful_resume` changes only how fast the Pasadizo side sends; an upstream peer sees an ordinary Hysteria2 connection.
+- An inbound with `concealed_auth` accepts an upstream client only with Basic credentials from `users`; without them the upstream client gets the decoy answer.
+- `multipath` (not released yet) needs Pasadizo on both sides.
+- `gost` talks to gost servers, not to sing-box.
+
+Where Pasadizo behaves differently with an upstream configuration: an outbound group does not count a failure of its member when the proxy server answered but could not reach the destination, and a `urltest` group really tests every `interval`, where upstream skips every other round and so tests at twice its `interval`.
+
+Pasadizo follows upstream's `testing` branch, so it has upstream 1.15's changes too. A 1.14 configuration that upstream 1.15 refuses, Pasadizo refuses as well: the TUN `stack` values `gvisor` and `mixed` need the `with_gvisor` build tag, which neither upstream 1.15 releases nor Pasadizo releases have (remove `stack`, see the [migration](../docs/migration.md)).
+
+## sing-quic
+
+Pasadizo builds with its own [sing-quic](https://github.com/pasadizo-net/sing-quic), upstream's library plus the changes Pasadizo needs in it (today: connection statistics of the Hysteria2 client, and Careful Resume in its BBR sender). `go.mod` takes it with a `replace` of `github.com/sagernet/sing-quic`, so no import path changes. The `require` line keeps the commit sing-box pins; `.github/pasadizo/check-sing-quic.sh`, which CI runs, fails when the replaced commit does not contain it, because the build would then pass on older QUIC code than sing-box asks for. After an upstream sync moves the pin: merge the sync pull request of `pasadizo-net/sing-quic`, then move the `replace` to the new commit of its `main` (the script's header has the command).
 
 ## Releases
 
@@ -90,6 +137,8 @@ Upstream is not merged as it is, because a plain merge conflicts wherever upstre
 3. The merge commit has the renamed upstream head as its second parent, and the parent of that commit is upstream's own commit, so the next sync finds it as its base.
 
 To do a sync by hand, run `.github/pasadizo/sync-merge.sh upstream/testing` on a new branch after `git fetch upstream testing`.
+
+Upstream sometimes rewrites `testing`: for 1.15.0-alpha.15 the commits Pasadizo had merged got new hashes. `git merge-base` then finds a much older upstream commit, and the merge replays weeks of upstream changes against Pasadizo's own and conflicts in dozens of files. In that case give the upstream commit that `main` merged last as the base: `SYNC_BASE=<commit> .github/pasadizo/sync-merge.sh upstream/testing` by hand, or the `base` input when you run the workflow by hand. Only the difference between that commit and the new head is then merged, and the next sync finds the right base by itself again.
 
 ## License
 

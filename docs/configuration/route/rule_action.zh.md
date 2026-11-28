@@ -2,7 +2,7 @@
 icon: material/new-box
 ---
 
-!!! quote "sing-box 1.15.0 中的更改"
+!!! quote "Pasadizo 中的更改"
 
     :material-plus: [fair_share](#fair_share)
 
@@ -263,7 +263,7 @@ UDP 连接超时时间。
 
 #### fair_share
 
-!!! question "自 sing-box 1.15.0 起"
+!!! question "仅 Pasadizo"
 
 ```json
 {

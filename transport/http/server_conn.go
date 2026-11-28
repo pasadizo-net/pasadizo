@@ -33,6 +33,9 @@ type serverConn struct {
 	source   M.Socksaddr
 	onClose  N.CloseHandlerFunc
 	upstream *upstreamConn
+	// rawRequest holds the bytes of the current request when a concealed
+	// authentication fallback may need to replay them.
+	rawRequest []byte
 }
 
 func (c *serverConn) serve() {
@@ -55,13 +58,23 @@ func (c *serverConn) serve() {
 func (c *serverConn) serveRequest() (requestResult, error) {
 	c.conn.SetReadDeadline(time.Now().Add(idleTimeout))
 	c.reader.setLimit(maxHeaderBytes)
+	recording := c.server.fallbackEnabled()
+	if recording {
+		c.reader.startRecording()
+	}
 	request, err := badhttp.ReadRequest(c.reader.Reader)
+	if recording {
+		c.rawRequest = c.reader.stopRecording()
+	}
 	c.reader.setLimit(-1)
 	c.conn.SetReadDeadline(time.Time{})
 	if err != nil {
 		switch {
 		case errors.Is(err, io.EOF), E.IsTimeout(err), E.IsClosed(err):
 			return requestClose, err
+		case c.server.fallbackEnabled():
+			// A request that does not parse is the fallback's to answer too.
+			return requestClose, c.server.relayFallback(c.ctx, c.conn, c.rawRequest)
 		case errors.Is(err, errHeaderTooLarge):
 			return c.rejectAndClose(nil, http.StatusRequestHeaderFieldsTooLarge, err)
 		default:
@@ -70,19 +83,28 @@ func (c *serverConn) serveRequest() (requestResult, error) {
 	}
 	tunnelProtocol, tunnelHandler := c.server.upgradeTunnelHandler(request)
 	if tunnelHandler != nil {
-		tunnelCtx, tunnelAuthErr := c.server.authenticate(c.ctx, request, "Authorization", c.source)
+		tunnelCtx, tunnelAuthErr := c.server.authenticate(c.ctx, request, "Authorization", c.source, connExporter(c.conn))
 		if tunnelAuthErr != nil {
 			c.server.logger.ErrorContext(c.ctx, E.Cause(tunnelAuthErr, "process connection from ", c.source))
+			if c.server.concealed != nil {
+				return c.serveDecoy(request, tunnelAuthErr)
+			}
 			return c.reject(request, requestKeepAlive(request), http.StatusUnauthorized, nil, tunnelAuthErr)
 		}
 		return c.serveTunnel(tunnelCtx, request, badhttp.ForwardedSource(request, c.source), tunnelProtocol, tunnelHandler)
 	}
 	if c.handler == nil {
+		if c.server.concealed != nil {
+			return c.serveDecoy(request, E.New("unexpected request: ", request.Method, " ", request.URL))
+		}
 		return c.reject(request, requestKeepAlive(request), http.StatusNotFound, nil, E.New("unexpected request: ", request.Method, " ", request.URL))
 	}
-	ctx, authErr := c.server.authenticate(c.ctx, request, "Proxy-Authorization", c.source)
+	ctx, authErr := c.server.authenticate(c.ctx, request, "Proxy-Authorization", c.source, connExporter(c.conn))
 	if authErr != nil {
 		c.server.logger.ErrorContext(c.ctx, E.Cause(authErr, "process connection from ", c.source))
+		if c.server.concealed != nil {
+			return c.serveDecoy(request, authErr)
+		}
 		return c.reject(request, requestKeepAlive(request), http.StatusProxyAuthRequired, nil, authErr)
 	}
 	source := badhttp.ForwardedSource(request, c.source)
@@ -112,6 +134,13 @@ func (c *serverConn) serveConnect(ctx context.Context, request *http.Request, so
 }
 
 func (c *serverConn) reject(request *http.Request, keepAlive bool, statusCode int, header http.Header, cause error) (requestResult, error) {
+	// A client may have sent tunnel data right after a CONNECT or an Upgrade,
+	// before our answer, and it must not be read as the next request (RFC 9931,
+	// Section 8 for CONNECT; Section 6.3 for connect-udp clients that still
+	// send datagrams early).
+	if requestStartsTransition(request) {
+		keepAlive = false
+	}
 	if keepAlive && request.Body != nil && request.Body != http.NoBody {
 		keepAlive = c.discardBody(request.Body)
 	}
@@ -149,6 +178,9 @@ func writeReject(conn net.Conn, request *http.Request, statusCode int, header ht
 		response.Header = make(http.Header)
 	}
 	response.Header.Set("Content-Type", "text/plain; charset=utf-8")
+	// An origin server with a clock sends Date (RFC 9110, Section 6.6.1), as
+	// net/http does; without it this answer would stand out.
+	response.Header.Set("Date", time.Now().UTC().Format(http.TimeFormat))
 	if request != nil {
 		response.ProtoMajor = request.ProtoMajor
 		response.ProtoMinor = request.ProtoMinor
