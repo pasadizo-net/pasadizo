@@ -2,7 +2,7 @@
 icon: material/new-box
 ---
 
-!!! question "自 sing-box 1.15.0 起"
+!!! question "仅 Pasadizo"
 
 ### 结构
 
@@ -53,7 +53,7 @@ icon: material/new-box
 
 #### timeout
 
-!!! question "自 sing-box 1.15.0 起"
+!!! question "仅 Pasadizo"
 
 单次 URL 测试的超时时间。默认使用 `15s`。
 

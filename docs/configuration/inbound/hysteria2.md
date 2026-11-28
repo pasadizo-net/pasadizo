@@ -2,7 +2,7 @@
 icon: material/alert-decagram
 ---
 
-!!! quote "Changes in sing-box 1.15.0"
+!!! quote "Changes in Pasadizo"
 
     :material-plus: [careful_resume](#careful_resume)
 
@@ -208,7 +208,7 @@ Enable debug information logging for Hysteria Brutal CC.
 
 #### careful_resume
 
-!!! question "Since sing-box 1.15.0"
+!!! question "Pasadizo only"
 
 Careful Resume ([RFC 9959](https://www.rfc-editor.org/rfc/rfc9959)) for the BBR congestion control. A new QUIC connection normally starts BBR from slow start, which on a path of 100 ms and 200 Mbit/s takes about two seconds to reach full speed. With Careful Resume, Pasadizo saves the bottleneck bandwidth and the minimum round trip time that BBR measures to each peer IP address (the /64 of an IPv6 address), for at most 4096 peers, and a new connection to the same address starts from half of that bandwidth, once the path is confirmed, instead of from slow start.
 

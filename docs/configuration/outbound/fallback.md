@@ -2,7 +2,7 @@
 icon: material/new-box
 ---
 
-!!! question "Since sing-box 1.15.0"
+!!! question "Pasadizo only"
 
 ### Structure
 
@@ -54,7 +54,7 @@ The test interval. `3m` will be used if empty.
 
 #### timeout
 
-!!! question "Since sing-box 1.15.0"
+!!! question "Pasadizo only"
 
 The timeout of one URL test. `15s` will be used if empty.
 

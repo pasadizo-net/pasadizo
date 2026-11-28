@@ -1,4 +1,4 @@
-!!! quote "sing-box 1.15.0 中的更改"
+!!! quote "Pasadizo 中的更改"
 
     :material-plus: [connections](#connections)
 
@@ -163,7 +163,7 @@ QUIC 流量混淆器密码。
 
 #### connections
 
-!!! question "自 sing-box 1.15.0 起"
+!!! question "仅 Pasadizo"
 
 与服务器保持的独立 Hysteria2 连接数。
 

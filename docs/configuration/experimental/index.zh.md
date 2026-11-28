@@ -1,6 +1,6 @@
 # 实验性
 
-!!! quote "sing-box 1.15.0 中的更改"
+!!! quote "Pasadizo 中的更改"
 
     :material-plus: [group_webhook](./group-webhook/)  
     :material-plus: [metrics](./metrics/)

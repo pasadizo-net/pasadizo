@@ -1,4 +1,4 @@
-!!! quote "Changes in sing-box 1.15.0"
+!!! quote "Changes in Pasadizo"
 
     :material-plus: [timeout](#timeout)
 
@@ -45,7 +45,7 @@ The test tolerance in milliseconds. `50` will be used if empty.
 
 #### timeout
 
-!!! question "Since sing-box 1.15.0"
+!!! question "Pasadizo only"
 
 The timeout of one URL test. `15s` will be used if empty.
 

@@ -2,7 +2,7 @@
 icon: material/new-box
 ---
 
-!!! question "Since sing-box 1.15.0"
+!!! question "Pasadizo only"
 
 ### Structure
 
@@ -59,7 +59,7 @@ The test interval. `3m` will be used if empty.
 
 #### timeout
 
-!!! question "Since sing-box 1.15.0"
+!!! question "Pasadizo only"
 
 The timeout of one URL test. `15s` will be used if empty.
 
@@ -67,7 +67,7 @@ A test that has no answer within it fails. A short timeout finds a dead path soo
 
 #### failure_threshold
 
-!!! question "Since sing-box 1.15.0"
+!!! question "Pasadizo only"
 
 The circuit breaker: an outbound whose connections fail for this many different destinations within `failure_window` is unhealthy at once, as if its URL test had failed, until its next successful test. Destinations count by host, so one destination that fails many times counts once and does not make an outbound unhealthy.
 
@@ -75,7 +75,7 @@ A failure is an error when the connection is opened, not one after it is establi
 
 #### failure_window
 
-!!! question "Since sing-box 1.15.0"
+!!! question "Pasadizo only"
 
 The time window of `failure_threshold`. `10s` will be used if empty. Needs `failure_threshold`.
 
