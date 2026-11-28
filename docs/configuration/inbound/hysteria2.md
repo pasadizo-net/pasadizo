@@ -4,7 +4,8 @@ icon: material/alert-decagram
 
 !!! quote "Changes in Pasadizo"
 
-    :material-plus: [careful_resume](#careful_resume)
+    :material-plus: [careful_resume](#careful_resume)  
+    :material-plus: [multipath](#multipath)
 
 !!! quote "Changes in sing-box 1.14.0"
 
@@ -64,6 +65,9 @@ icon: material/alert-decagram
       "lifetime": ""
     },
     "http_client": {}
+  },
+  "multipath": {
+    "enabled": false
   }
 }
 ```
@@ -317,3 +321,19 @@ Lease lifetime of the mapping.
 HTTP client used to talk to the realm.
 
 See [HTTP Client](/configuration/shared/http-client/) for details.
+
+#### multipath
+
+!!! question "Pasadizo only"
+
+Accept the paths a client adds to its QUIC connection with the multipath extension of [RFC 10069](https://www.rfc-editor.org/rfc/rfc10069), see [`multipath`](/configuration/outbound/hysteria2/#multipath) on the outbound.
+
+This is a Pasadizo extension: the official Hysteria2 client and sing-box do not use it, and connect as before.
+The server sends on every path of a connection that the client did not mark as a backup, and on a backup path only while no other path works.
+The first path uses the congestion controller the connection negotiated; the paths the client adds use BBR, because the client's `down_mbps` is for the whole connection.
+It answers on each path from the address the client sent to, so a client can reach the same server address over several uplinks.
+Path MTU discovery is not used on a multipath connection.
+
+#### multipath.enabled
+
+Announce the multipath extension (the `initial_max_path_id` transport parameter) to clients.

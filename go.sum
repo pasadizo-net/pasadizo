@@ -288,8 +288,10 @@ github.com/openai/openai-go/v3 v3.108.0 h1:KkG+j4KiRbg199oTi9pLg5r9nwnJYvNn7YRwo
 github.com/openai/openai-go/v3 v3.108.0/go.mod h1:dYJy3sozy5kqizqdbtk1xKLr2WBPDaw8woVu+cWmQIA=
 github.com/oschwald/maxminddb-golang v1.13.1 h1:G3wwjdN9JmIK2o/ermkHM+98oX5fS+k5MbwsmL4MRQE=
 github.com/oschwald/maxminddb-golang v1.13.1/go.mod h1:K4pgV9N/GcK694KSTmVSDTODk4IsCNThNdTmnaBZ/F8=
-github.com/pasadizo-net/sing-quic v0.0.0-20261128054608-789bfc4a32d0 h1:L/nz9trOxQv8ZCoRvdXYKpBdiSzkE2CryuOHuaqztWw=
-github.com/pasadizo-net/sing-quic v0.0.0-20261128054608-789bfc4a32d0/go.mod h1:3QihrIfzAYBKBEv0GGVReFV0MkakL7WYM7DxNleonKw=
+github.com/pasadizo-net/quic-go v0.0.0-20261128121951-bb78f72c1784 h1:4iZMQ//Ats4KLwtk7wCivt6tVVFdmIMSX/hI2zvBvPM=
+github.com/pasadizo-net/quic-go v0.0.0-20261128121951-bb78f72c1784/go.mod h1:Zo98Ai4X4V5LfA+9lieDJyoYRQlhMQBvVSWQgD2uNe4=
+github.com/pasadizo-net/sing-quic v0.0.0-20261128122317-e7cda82eb056 h1:er4usF4/fU9/muSL/qJ3AroWKDf+kyCgEbemOA9/GQs=
+github.com/pasadizo-net/sing-quic v0.0.0-20261128122317-e7cda82eb056/go.mod h1:y2ZiJMu94oqLf/gM25jPvN6H7Wd9D3FXwVi06iHACXo=
 github.com/pb33f/go-yaml v0.2.0 h1:t9fYMVk2BGlBIu6L07gryB+gOWt8rjEJO7e/jdBSqCo=
 github.com/pb33f/go-yaml v0.2.0/go.mod h1:QvWdkHP5VjFYAeHMQUkaPQqREaQnBNOXmWzAjNrnSdo=
 github.com/pb33f/ordered-map/v2 v2.3.2 h1:wDyaZ2Pv9QLh64X4utCeD5Zoi9nIv2aW3lwv172O5PQ=
@@ -401,8 +403,6 @@ github.com/sagernet/netlink v0.0.0-20261125120807-b006b90aa077 h1:L1pxwVWz02wU/o
 github.com/sagernet/netlink v0.0.0-20261125120807-b006b90aa077/go.mod h1:xLnfdiJbSp8rNqYEdIW/6eDO4mVoogml14Bh2hSiFpM=
 github.com/sagernet/nftables v0.3.0-mod.4.0.20261114074246-0b310c3e010b h1:dgnXJAbP71bzUrl31YvQNO3DGqQq20tz7h8MaroD4fY=
 github.com/sagernet/nftables v0.3.0-mod.4.0.20261114074246-0b310c3e010b/go.mod h1:8kslHG4VvYNihcco+i6uxIX7qbT8A56T0y5q7U44ZaQ=
-github.com/sagernet/quic-go v0.66.0-sing-box-mod.1 h1:Wo0ZwRzKEzlRLMDoe+xZ/IS0PoQERYgu7iFCWfWvV3Q=
-github.com/sagernet/quic-go v0.66.0-sing-box-mod.1/go.mod h1:Zo98Ai4X4V5LfA+9lieDJyoYRQlhMQBvVSWQgD2uNe4=
 github.com/sagernet/sing v0.9.7-0.20261127131308-bbcd8ecc42a3 h1:7onjfiUADpnrRRhnH9iSrZngP3VpLDNZD/Trs7PHV58=
 github.com/sagernet/sing v0.9.7-0.20261127131308-bbcd8ecc42a3/go.mod h1:K3Owt3xPhHugvlnlPPxZJ/exXdaJfEPOTNorGk4AXjo=
 github.com/sagernet/sing-anytls v0.0.0-20261124060518-f3865241cc12 h1:wtDB6/fB45XwYip/dNRXt25ZBDa8wp7M/47Y9ZKCneA=

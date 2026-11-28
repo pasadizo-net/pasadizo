@@ -143,6 +143,10 @@ func NewOutbound(ctx context.Context, router adapter.Router, logger log.ContextL
 			}
 		}
 	}
+	multipathPaths, err := newMultipathPaths(ctx, options, connections)
+	if err != nil {
+		return nil, err
+	}
 	networkList := options.Network.Build()
 	// One store for every connection of the pool: they share the path, and
 	// only one of them at a time resumes from the saved parameters.
@@ -176,11 +180,12 @@ func NewOutbound(ctx context.Context, router adapter.Router, logger log.ContextL
 			InitialPacketSize:       options.InitialPacketSize,
 			DisablePathMTUDiscovery: options.DisablePathMTUDiscovery,
 		},
-		UDPDisabled:   !common.Contains(networkList, N.NetworkUDP),
-		BBRProfile:    options.BBRProfile,
-		ChromeParrot:  !options.DisableChromeParrot,
-		RealmOptions:  realmOptions,
-		CarefulResume: carefulResume,
+		UDPDisabled:    !common.Contains(networkList, N.NetworkUDP),
+		BBRProfile:     options.BBRProfile,
+		ChromeParrot:   !options.DisableChromeParrot,
+		RealmOptions:   realmOptions,
+		MultipathPaths: multipathPaths,
+		CarefulResume:  carefulResume,
 	}
 	clients := make([]*hysteria2.Client, connections)
 	for i := range clients {

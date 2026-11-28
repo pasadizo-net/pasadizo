@@ -109,7 +109,7 @@ UTLS = {"enabled": True, "fingerprint": "chrome"}
 Build = Callable[[Material, int, bool, bool], tuple[dict, dict, str]]
 
 
-def hysteria2(obfs: str, careful_resume: bool = False) -> Build:
+def hysteria2(obfs: str, careful_resume: bool = False, multipath: bool = False) -> Build:
     def build(m: Material, port: int, p_srv: bool, p_cli: bool) -> tuple[dict, dict, str]:
         s = {"type": "hysteria2", "listen": "127.0.0.1", "listen_port": port,
              "users": [{"name": "u", "password": "hy2-password"}], "tls": m.server_tls(alpn=["h3"])}
@@ -128,6 +128,14 @@ def hysteria2(obfs: str, careful_resume: bool = False) -> Build:
                                    "state_file": str(m.work / f"careful-resume-{port}.json")}
         if careful_resume and p_cli:
             c["careful_resume"] = {"enabled": True}
+        # Multipath (RFC 10069) is Pasadizo's too: a Pasadizo server announces
+        # it to an upstream client, which must ignore it, and a Pasadizo client
+        # with an extra path must fall back to one path on an upstream server.
+        if multipath and p_srv:
+            s["multipath"] = {"enabled": True}
+        if multipath and p_cli:
+            c["multipath"] = {"paths": [{}]}
+            c["disable_chrome_parrot"] = True
         return s, c, "udp"
     return build
 
@@ -215,6 +223,7 @@ CASES: dict[str, Build] = {
     "hysteria2-salamander": hysteria2("salamander"),
     "hysteria2-gecko": hysteria2("gecko"),
     "hysteria2-gecko-careful-resume": hysteria2("gecko", careful_resume=True),
+    "hysteria2-gecko-multipath": hysteria2("gecko", multipath=True),
     "anytls": anytls(""),
     "anytls-ech-sing-box-pem": anytls("sing-box"),
     "anytls-ech-rfc9934-pem": anytls("rfc9934"),

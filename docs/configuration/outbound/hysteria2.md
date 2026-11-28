@@ -1,7 +1,8 @@
 !!! quote "Changes in Pasadizo"
 
     :material-plus: [connections](#connections)  
-    :material-plus: [careful_resume](#careful_resume)
+    :material-plus: [careful_resume](#careful_resume)  
+    :material-plus: [multipath](#multipath)
 
 !!! quote "Changes in sing-box 1.14.0"
 
@@ -63,6 +64,16 @@
       "lifetime": ""
     },
     "http_client": {}
+  },
+  "multipath": {
+    "paths": [
+      {
+        "backup": false,
+        "up_mbps": 0,
+
+        ... // Dial Fields
+      }
+    ]
   },
 
   ... // Dial Fields
@@ -324,6 +335,44 @@ Lease lifetime of the mapping.
 HTTP client used to talk to the realm.
 
 See [HTTP Client](/configuration/shared/http-client/) for details.
+
+#### multipath
+
+!!! question "Pasadizo only"
+
+Add more network paths to the QUIC connection with the multipath extension of [RFC 10069](https://www.rfc-editor.org/rfc/rfc10069), for example a second uplink of another provider.
+The outbound's own Dial Fields open the first path; each entry of `paths` opens one more, to the same server address.
+The server needs [`multipath`](/configuration/inbound/hysteria2/#multipath) on its Hysteria2 inbound: this is a Pasadizo extension, which the official Hysteria2 server and sing-box do not have.
+
+All paths carry one QUIC connection, so a path that dies does not close a TCP connection or a UDP session.
+A path that stops acknowledging packets for one probe timeout (PTO, a few round trips) is marked failed, its packets in flight are sent again on the other paths, and it is probed with a PING about once a second until it answers again.
+A path that cannot be opened, or that the server closes, is opened again after 2 seconds, then after up to a minute.
+
+Each path has its own congestion controller.
+The first path uses the kind the outbound uses (Brutal with `up_mbps` and `down_mbps`, BBR without them); the paths in `paths` use BBR, or Brutal at their own `up_mbps` when the outbound uses Brutal and the path sets one, and the server sends on them with BBR.
+Brutal never backs off, so Brutal at the outbound's bandwidth on every path would send that bandwidth once per path.
+Both endpoints send on the path with the lowest round trip time first and use the other available paths when that one is limited by its congestion controller, so the paths are aggregated.
+
+Requires `disable_chrome_parrot`: the imitated Chrome handshake uses zero-length connection IDs, which the multipath extension forbids.
+Conflicts with `server_ports` and `realm`.
+Path MTU discovery is not used on a multipath connection: every path uses `initial_packet_size`.
+
+#### multipath.paths
+
+The extra paths.
+
+Each path takes [Dial Fields](/configuration/shared/dial/), such as `bind_interface`.
+
+#### multipath.paths.backup
+
+Use the path only while no other path works (`PATH_STATUS_BACKUP`).
+The server follows the same rule, so no traffic goes over a metered backup path while the main path works, except a PING at each `keep_alive_period`.
+
+#### multipath.paths.up_mbps
+
+The bandwidth Brutal sends at on this path, in Mbps, when the outbound uses Brutal.
+
+The path uses BBR if empty. The outbound's `up_mbps` is the upper limit.
 
 ### Dial Fields
 

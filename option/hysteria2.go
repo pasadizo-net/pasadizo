@@ -23,10 +23,11 @@ type Hysteria2InboundOptions struct {
 	IgnoreClientBandwidth bool            `json:"ignore_client_bandwidth,omitempty"`
 	InboundTLSOptionsContainer
 	QUICOptions
-	Masquerade  *Hysteria2Masquerade   `json:"masquerade,omitempty"`
-	BBRProfile  string                 `json:"bbr_profile,omitempty" enum:"standard,conservative,aggressive"`
-	BrutalDebug bool                   `json:"brutal_debug,omitempty"`
-	Realm       *Hysteria2InboundRealm `json:"realm,omitempty"`
+	Masquerade  *Hysteria2Masquerade       `json:"masquerade,omitempty"`
+	BBRProfile  string                     `json:"bbr_profile,omitempty" enum:"standard,conservative,aggressive"`
+	BrutalDebug bool                       `json:"brutal_debug,omitempty"`
+	Realm       *Hysteria2InboundRealm     `json:"realm,omitempty"`
+	Multipath   *Hysteria2InboundMultipath `json:"multipath,omitempty"`
 
 	CarefulResume *Hysteria2CarefulResumeOptions `json:"careful_resume,omitempty"`
 }
@@ -38,6 +39,26 @@ type Hysteria2CarefulResumeOptions struct {
 	Enabled   bool               `json:"enabled,omitempty"`
 	Lifetime  badoption.Duration `json:"lifetime,omitempty"`
 	StateFile string             `json:"state_file,omitempty"`
+}
+
+// Hysteria2InboundMultipath accepts the paths a client adds to its QUIC connection
+// with the multipath extension of RFC 10069.
+type Hysteria2InboundMultipath struct {
+	Enabled bool `json:"enabled,omitempty"`
+}
+
+// Hysteria2OutboundMultipath adds paths to the outbound's QUIC connection with the
+// multipath extension of RFC 10069.
+type Hysteria2OutboundMultipath struct {
+	Paths []Hysteria2MultipathPath `json:"paths,omitempty"`
+}
+
+// Hysteria2MultipathPath is one path besides the one the outbound's own dial
+// fields open: the dial fields of its socket, such as another bind_interface.
+type Hysteria2MultipathPath struct {
+	DialerOptions
+	Backup bool `json:"backup,omitempty"`
+	UpMbps int  `json:"up_mbps,omitempty"`
 }
 
 type Hysteria2Realm struct {
@@ -229,10 +250,11 @@ type Hysteria2OutboundOptions struct {
 	Connections    int                    `json:"connections,omitempty"`
 	OutboundTLSOptionsContainer
 	QUICOptions
-	BBRProfile          string          `json:"bbr_profile,omitempty" enum:"standard,conservative,aggressive"`
-	BrutalDebug         bool            `json:"brutal_debug,omitempty"`
-	DisableChromeParrot bool            `json:"disable_chrome_parrot,omitempty"`
-	Realm               *Hysteria2Realm `json:"realm,omitempty"`
+	BBRProfile          string                      `json:"bbr_profile,omitempty" enum:"standard,conservative,aggressive"`
+	BrutalDebug         bool                        `json:"brutal_debug,omitempty"`
+	DisableChromeParrot bool                        `json:"disable_chrome_parrot,omitempty"`
+	Realm               *Hysteria2Realm             `json:"realm,omitempty"`
+	Multipath           *Hysteria2OutboundMultipath `json:"multipath,omitempty"`
 
 	CarefulResume *Hysteria2CarefulResumeOptions `json:"careful_resume,omitempty"`
 }
