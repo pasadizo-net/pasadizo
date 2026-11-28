@@ -42,8 +42,8 @@ func ECHKeygenDefault(publicName string) (configPem string, keyPem string, err e
 	if err != nil {
 		return
 	}
-	configPem = string(pem.EncodeToMemory(&pem.Block{Type: "ECH CONFIGS", Bytes: configBytes}))
-	keyPem = string(pem.EncodeToMemory(&pem.Block{Type: "ECH KEYS", Bytes: keyBytes}))
+	configPem = string(pem.EncodeToMemory(&pem.Block{Type: echConfigsPEMType, Bytes: configBytes}))
+	keyPem = string(pem.EncodeToMemory(&pem.Block{Type: echKeysPEMType, Bytes: keyBytes}))
 	return
 }
 
