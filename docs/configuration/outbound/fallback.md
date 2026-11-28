@@ -2,7 +2,7 @@
 icon: material/new-box
 ---
 
-!!! question "Since sing-box 1.15.0"
+!!! question "Pasadizo only"
 
 ### Structure
 
@@ -55,7 +55,7 @@ The test interval. `3m` will be used if empty.
 
 #### timeout
 
-!!! question "Since sing-box 1.15.0"
+!!! question "Pasadizo only"
 
 The timeout of one URL test. `15s` will be used if empty.
 
@@ -80,6 +80,8 @@ Use it for a backup on a metered or slow link, such as mobile data or a satellit
 The health of a lazy outbound that is not being tested is not reported to the [group webhook](/configuration/experimental/group-webhook/).
 
 #### stall_timeout
+
+!!! question "Pasadizo only"
 
 An outbound that keeps its own transport connection to its server, which today is a Hysteria2 outbound with its QUIC connection, is unavailable at once when that connection has sent packets for this time and received none, as if its URL test had failed, until its next successful test. Disabled if empty; `5s` is a good start. It must be between `1s` and `20s`: a connection that receives nothing is closed by its own idle timeout, `30s` by default, and a closed connection is not stalled.
 

@@ -1,4 +1,4 @@
-!!! question "自 sing-box 1.15.0 起"
+!!! question "仅 Pasadizo"
 
 当出站组更换所选出站，或 [URLTest](/zh/configuration/outbound/urltest/)、[Fallback](/zh/configuration/outbound/fallback/) 或 [LoadBalance](/configuration/outbound/loadbalance/) 组的成员可用性发生变化时，
 组 Webhook 会发送 HTTP `POST` 请求。

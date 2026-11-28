@@ -1,4 +1,4 @@
-!!! quote "Changes in sing-box 1.15.0"
+!!! quote "Changes in Pasadizo"
 
     :material-plus: [metrics](#metrics)
 
@@ -171,7 +171,7 @@ If not empty, configuration specified data will use a separate store keyed by it
 
 ### Metrics
 
-!!! question "Since sing-box 1.15.0"
+!!! question "Pasadizo only"
 
 `GET /metrics` returns metrics in the Prometheus text format, protected by `secret` like the rest of the API.
 

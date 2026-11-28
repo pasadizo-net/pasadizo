@@ -2,7 +2,7 @@
 icon: material/new-box
 ---
 
-!!! quote "Changes in sing-box 1.15.0"
+!!! quote "Changes in Pasadizo"
 
     :material-plus: [fair_share](#fair_share)
 
@@ -273,7 +273,7 @@ of accepted values and platform notes.
 
 #### fair_share
 
-!!! question "Since sing-box 1.15.0"
+!!! question "Pasadizo only"
 
 ```json
 {

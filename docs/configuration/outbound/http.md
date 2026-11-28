@@ -47,7 +47,7 @@ Basic authorization password.
 
 #### concealed_auth
 
-!!! question "Since sing-box 1.15.0"
+!!! question "Pasadizo only"
 
 [Concealed authentication](/configuration/shared/concealed-auth/#outbound) (RFC 9729) with a private key, instead of `username` and `password`. TLS is required.
 

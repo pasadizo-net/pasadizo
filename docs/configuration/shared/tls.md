@@ -593,12 +593,13 @@ Two PEM formats are read:
 
 * sing-box's own: an `ECH CONFIGS` block for the client and an `ECH KEYS` block for the server
   (`pasadizo generate ech-keypair <public_name>`). Upstream sing-box reads only this one.
-* [RFC 9934](https://www.rfc-editor.org/rfc/rfc9934.html): an `ECHCONFIG` block for the client, and for the server
+* [RFC 9934](https://www.rfc-editor.org/rfc/rfc9934.html), Pasadizo only: an `ECHCONFIG` block for the client, and for the server
   a PKCS #8 `PRIVATE KEY` (X25519) followed by the `ECHCONFIG` block it serves
   (`pasadizo generate ech-keypair --format rfc9934 <public_name>`). OpenSSL reads the same file.
 
 The two config blocks hold the same bytes, an ECHConfigList, so a config of one format becomes the other by renaming
-its PEM label. A client config with a private key in it is refused.
+its PEM label. A client config with a private key in it is refused. An upstream sing-box client of a Pasadizo server
+needs the `ECH CONFIGS` label, and an upstream sing-box server needs the `ECH KEYS` block.
 
 A config written in the configuration needs no DNS: the client does not look up the HTTPS record, so a network that
 blocks the resolvers that carry ECH configs cannot stop it. ECH works together with `utls`: the outer ClientHello

@@ -62,6 +62,8 @@ No authentication required if empty.
 
 ### concealed_auth
 
+!!! question "Pasadizo only"
+
 [Concealed authentication](/configuration/shared/concealed-auth/#inbound) (RFC 9729): clients prove a key bound to their TLS session in the `Authorization` header field, and every request without a valid proof gets a decoy answer instead of a `401`, so an active probe sees a web server.
 
 ### tls
