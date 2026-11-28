@@ -42,33 +42,35 @@ func (g *URLTestGroup) setDormant(tag string, dormant bool) {
 	g.dormant[tag] = dormant
 }
 
-// hasPassedTest reports whether the member has a passed test for a network
-// it supports.
-func (g *URLTestGroup) hasPassedTest(detour adapter.Outbound) bool {
+// lazyNeeded reports whether the lazy member at index must be tested: it is
+// selected, or for a network it supports no member before it is available.
+// A member before it that does not carry UDP leaves UDP to the lazy member,
+// which is then needed all the time.
+func (g *URLTestGroup) lazyNeeded(index int) bool {
+	detour := g.outbounds[index]
+	if g.selectedOutboundTCP.Load() == detour || g.selectedOutboundUDP.Load() == detour {
+		return true
+	}
 	for _, network := range []string{N.NetworkTCP, N.NetworkUDP} {
-		if !common.Contains(detour.Network(), network) {
-			continue
-		}
-		if realTag := RealTag(detour, network); realTag != "" && g.history.LoadURLTestHistory(realTag) != nil {
+		if common.Contains(detour.Network(), network) && !g.earlierAvailable(index, network) {
 			return true
 		}
 	}
 	return false
 }
 
-// lazyNeeded reports whether the lazy member at index must be tested: it is
-// selected, or no member before it is available.
-func (g *URLTestGroup) lazyNeeded(index int) bool {
-	detour := g.outbounds[index]
-	if g.selectedOutboundTCP.Load() == detour || g.selectedOutboundUDP.Load() == detour {
-		return true
-	}
+// earlierAvailable reports whether a member before index that is being tested
+// has a passed test for the network.
+func (g *URLTestGroup) earlierAvailable(index int, network string) bool {
 	for _, earlier := range g.outbounds[:index] {
-		if !g.isDormant(earlier.Tag()) && g.hasPassedTest(earlier) {
-			return false
+		if !common.Contains(earlier.Network(), network) || g.isDormant(earlier.Tag()) {
+			continue
+		}
+		if realTag := RealTag(earlier, network); realTag != "" && g.history.LoadURLTestHistory(realTag) != nil {
+			return true
 		}
 	}
-	return true
+	return false
 }
 
 // testMembers runs one test round. Without lazy members that is one batch.

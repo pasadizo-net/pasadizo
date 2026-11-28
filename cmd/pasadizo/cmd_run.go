@@ -251,8 +251,9 @@ func reloadRules(instance *box.Box, current option.Options) (option.Options, boo
 		return current, false
 	}
 	if !changed {
-		log.Info("reload: the configuration did not change")
-		return next, true
+		// Restart, as a reload always did: files that the configuration only
+		// names, such as certificates and local rule-sets, may have changed.
+		return current, false
 	}
 	err = instance.ReloadRules(current, next)
 	if err != nil {
