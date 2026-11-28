@@ -300,10 +300,10 @@ github.com/opencontainers/go-digest v1.0.0 h1:apOUWs51W5PlhuyGyz9FCeeBIOUDA/6nW8
 github.com/opencontainers/go-digest v1.0.0/go.mod h1:0JzlMkj0TRzQZfJkVvzbP0HBR3IKzErnv2BNG4W4MAM=
 github.com/opencontainers/image-spec v1.1.1 h1:y0fUlFfIZhPF1W537XOLg0/fcx6zcHCJwooC2xJA040=
 github.com/opencontainers/image-spec v1.1.1/go.mod h1:qpqAh3Dmcf36wStyyWU+kCeDgrGnAve2nCC8+7h8Q0M=
-github.com/pasadizo-net/quic-go v0.0.0-20261128114540-e38515c62f13 h1:uACoMuwlA72956YR3aEABMoI/972/1loS20zCTAbL3A=
-github.com/pasadizo-net/quic-go v0.0.0-20261128114540-e38515c62f13/go.mod h1:Zo98Ai4X4V5LfA+9lieDJyoYRQlhMQBvVSWQgD2uNe4=
-github.com/pasadizo-net/sing-quic v0.0.0-20261128114635-1ecdb91965fc h1:NcwuoZcFa67xTutmIHwAJJIgWj3jvRKdEDUd47aKRe0=
-github.com/pasadizo-net/sing-quic v0.0.0-20261128114635-1ecdb91965fc/go.mod h1:ynifj7PCpF09vPMZIpnDFfUlwL75RVRvG5w66p3TGBo=
+github.com/pasadizo-net/quic-go v0.0.0-20261128121317-b9ea07a8f277 h1:SvrYw1TvF85lUBSpQp98DQp7QdqLB3IW4vxQ7/3A0Vk=
+github.com/pasadizo-net/quic-go v0.0.0-20261128121317-b9ea07a8f277/go.mod h1:Zo98Ai4X4V5LfA+9lieDJyoYRQlhMQBvVSWQgD2uNe4=
+github.com/pasadizo-net/sing-quic v0.0.0-20261128121351-62115f074c4b h1:MxjHO2BBOsYZVUySHU3/RtEf8JM53Lxi0l3d3ooXcrk=
+github.com/pasadizo-net/sing-quic v0.0.0-20261128121351-62115f074c4b/go.mod h1:uQ4ItL00FeC4s71OQTflfsfhVfyUbm+LUPqP4gXrzUQ=
 github.com/pb33f/go-yaml v0.2.0 h1:t9fYMVk2BGlBIu6L07gryB+gOWt8rjEJO7e/jdBSqCo=
 github.com/pb33f/go-yaml v0.2.0/go.mod h1:QvWdkHP5VjFYAeHMQUkaPQqREaQnBNOXmWzAjNrnSdo=
 github.com/pb33f/ordered-map/v2 v2.3.2 h1:wDyaZ2Pv9QLh64X4utCeD5Zoi9nIv2aW3lwv172O5PQ=
