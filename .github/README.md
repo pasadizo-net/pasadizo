@@ -37,9 +37,49 @@ Pasadizo ("secret passage" in Spanish) is a proxy platform derived from [sing-bo
 | Prometheus metrics in the Clash API | `GET /metrics` | [docs/configuration/experimental/clash-api.md](../docs/configuration/experimental/clash-api.md) |
 | A standalone, read-only Prometheus metrics listener, with optional basic authentication, that does not expose the Clash API | `experimental.metrics` | [docs/configuration/experimental/metrics.md](../docs/configuration/experimental/metrics.md) |
 | Connections and errors per inbound, dials, dial errors and a dial duration histogram per outbound, and the process start time, in the Prometheus metrics | `sing_box_inbound_*`, `sing_box_outbound_dial*`, `process_start_time_seconds` | [docs/configuration/experimental/metrics.md](../docs/configuration/experimental/metrics.md#metrics) |
+| ECH keys and configs in the PEM format of RFC 9934 (`ECHCONFIG`, and a PKCS #8 key followed by it), which OpenSSL reads too; `generate ech-keypair --format rfc9934` writes them | `"ech": {"key": [...]}`, `"ech": {"config": [...]}` | [docs/configuration/shared/tls.md](../docs/configuration/shared/tls.md#ech) |
+| Concealed HTTP Authentication (RFC 9729) on the HTTP inbound and outbound and the MASQUE server and client: a key bound to the TLS session instead of a password, and a decoy answer instead of `401` or `407` | `concealed_auth` | [docs/configuration/shared/concealed-auth.md](../docs/configuration/shared/concealed-auth.md) |
+| Sources that need no password on the HTTP inbound | `auth_exempt_source_ip_cidr` | [docs/configuration/inbound/http.md](../docs/configuration/inbound/http.md#auth_exempt_source_ip_cidr) |
+| The timeout of one URL test of a `urltest` group | `"timeout"` on a `urltest` outbound | [docs/configuration/outbound/urltest.md](../docs/configuration/outbound/urltest.md#timeout) |
 | Cloudflare WARP mode for the MASQUE client (incomplete: the QUIC library still refuses the extended CONNECT) | `masque-client` endpoint | [docs/configuration/endpoint/masque-client.md](../docs/configuration/endpoint/masque-client.md) |
 
 Each feature is one commit on top of upstream, so it can be read, reverted or offered upstream on its own.
+
+## Compatibility with sing-box
+
+Pasadizo reads every configuration that upstream sing-box of the same version reads, and speaks each protocol the way upstream does: a Pasadizo server serves upstream sing-box clients (and apps built on sing-box), and a Pasadizo client reaches upstream servers. The workflow `pasadizo-compat` (`.github/pasadizo/wire-compat.py`) checks the second part on every pull request and every week. It runs each protocol below on `127.0.0.1` with a Pasadizo server and an upstream client and the reverse, against upstream's latest release and pre-release binaries, and sends a TCP fetch and a DNS query over UDP through each pair:
+
+| Protocol | Options | Pasadizo server, upstream client | Upstream server, Pasadizo client |
+| --- | --- | --- | --- |
+| Hysteria2 | `salamander` obfs, Brutal (`up_mbps`/`down_mbps`) | works | works |
+| Hysteria2 | `gecko` obfs, BBR | works | works |
+| Hysteria2 | `gecko` obfs, `careful_resume` on the Pasadizo side | works | works |
+| AnyTLS | uTLS Chrome, without ECH, with ECH in sing-box's PEM, with ECH in RFC 9934 PEM on the Pasadizo side | works | works |
+| Trojan, VLESS | WebSocket, uTLS Chrome, h2mux multiplex | works | works |
+| Shadowsocks | `2022-blake3-aes-128-gcm` | works | works |
+| TUIC | BBR | works | works |
+| VLESS | REALITY, `xtls-rprx-vision` | works | works |
+| NaiveProxy | HTTP/2, UDP over TCP | works | works |
+
+TCP Brutal on a multiplexed connection is not in the workflow, because it needs the tcp-brutal kernel module on the server; the exchange that turns it on is upstream's (sing-mux), and Pasadizo does not change it.
+
+What only Pasadizo reads. Upstream decodes a configuration strictly, so each of these makes upstream refuse the whole file (`json: unknown field` or `unknown outbound type`), while Pasadizo reads every upstream file:
+
+- Outbound types `loadbalance`, `fallback` and `gost`.
+- `experimental.metrics` and `experimental.group_webhook`.
+- `careful_resume` and `connections` on `hysteria2`; `timeout` on `urltest`; `fair_share` in a route action; `auth_exempt_source_ip_cidr` and `concealed_auth` on `http`; `concealed_auth`, `address` and `warp` on the MASQUE endpoints.
+- ECH in the PEM format of RFC 9934. Upstream reads only `ECH CONFIGS` and `ECH KEYS`. An `ECHCONFIG` block holds the same bytes as an `ECH CONFIGS` block, so rename its label for an upstream client. An RFC 9934 server key cannot be renamed; for an upstream server, use a key from `pasadizo generate ech-keypair` without `--format`.
+
+What an upstream peer cannot use:
+
+- `careful_resume` changes only how fast the Pasadizo side sends; an upstream peer sees an ordinary Hysteria2 connection.
+- An inbound with `concealed_auth` accepts an upstream client only with Basic credentials from `users`; without them the upstream client gets the decoy answer.
+- `multipath` (not released yet) needs Pasadizo on both sides.
+- `gost` talks to gost servers, not to sing-box.
+
+Where Pasadizo behaves differently with an upstream configuration: an outbound group does not count a failure of its member when the proxy server answered but could not reach the destination, and a `urltest` group really tests every `interval`, where upstream skips every other round and so tests at twice its `interval`.
+
+Pasadizo follows upstream's `testing` branch, so it has upstream 1.15's changes too. A 1.14 configuration that upstream 1.15 refuses, Pasadizo refuses as well: the TUN `stack` values `gvisor` and `mixed` need the `with_gvisor` build tag, which neither upstream 1.15 releases nor Pasadizo releases have (remove `stack`, see the [migration](../docs/migration.md)).
 
 ## Releases
 
