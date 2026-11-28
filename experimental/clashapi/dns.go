@@ -4,8 +4,8 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/sagernet/sing-box/adapter"
-	C "github.com/sagernet/sing-box/constant"
+	"github.com/pasadizo-net/pasadizo/adapter"
+	C "github.com/pasadizo-net/pasadizo/constant"
 	"github.com/sagernet/sing/common"
 
 	"github.com/go-chi/chi/v5"

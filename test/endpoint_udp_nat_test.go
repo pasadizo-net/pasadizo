@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sagernet/sing-box/transport/device"
+	"github.com/pasadizo-net/pasadizo/transport/device"
 	"github.com/sagernet/sing-tun"
 	"github.com/sagernet/sing-tun/gtcpip/header"
 	"github.com/sagernet/sing/common/buf"

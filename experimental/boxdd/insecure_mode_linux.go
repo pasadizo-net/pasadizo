@@ -5,7 +5,7 @@ package main
 import (
 	"context"
 
-	"github.com/sagernet/sing-box/adapter"
+	"github.com/pasadizo-net/pasadizo/adapter"
 	"github.com/sagernet/sing/service"
 	"github.com/sagernet/sing/service/filemanager"
 )

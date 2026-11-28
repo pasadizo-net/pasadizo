@@ -3,8 +3,8 @@
 package include
 
 import (
-	"github.com/sagernet/sing-box/adapter/service"
-	"github.com/sagernet/sing-box/service/ocm"
+	"github.com/pasadizo-net/pasadizo/adapter/service"
+	"github.com/pasadizo-net/pasadizo/service/ocm"
 )
 
 func registerOCMService(registry *service.Registry) {

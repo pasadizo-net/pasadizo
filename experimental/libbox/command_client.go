@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/sagernet/sing-box/daemon"
+	"github.com/pasadizo-net/pasadizo/daemon"
 	"github.com/sagernet/sing/common"
 	E "github.com/sagernet/sing/common/exceptions"
 

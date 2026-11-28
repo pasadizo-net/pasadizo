@@ -4,7 +4,7 @@ import (
 	"net/netip"
 	"strings"
 
-	"github.com/sagernet/sing-box/adapter"
+	"github.com/pasadizo-net/pasadizo/adapter"
 	"github.com/sagernet/sing/common"
 	"github.com/sagernet/sing/common/control"
 	"github.com/sagernet/sing/common/json/badjson"

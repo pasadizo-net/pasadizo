@@ -1,6 +1,6 @@
 package libbox
 
-import "github.com/sagernet/sing-box/daemon"
+import "github.com/pasadizo-net/pasadizo/daemon"
 
 type NetworkQualityProgress struct {
 	Phase                    int32

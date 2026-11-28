@@ -1,7 +1,7 @@
 package dns
 
 import (
-	"github.com/sagernet/sing-box/option"
+	"github.com/pasadizo-net/pasadizo/option"
 )
 
 type TransportAdapter struct {

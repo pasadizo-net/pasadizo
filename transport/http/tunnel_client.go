@@ -10,7 +10,7 @@ import (
 	"net/url"
 	"strings"
 
-	C "github.com/sagernet/sing-box/constant"
+	C "github.com/pasadizo-net/pasadizo/constant"
 	"github.com/sagernet/sing/common/buf"
 	"github.com/sagernet/sing/common/bufio"
 	E "github.com/sagernet/sing/common/exceptions"

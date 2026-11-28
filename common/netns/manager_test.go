@@ -11,10 +11,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sagernet/sing-box/adapter"
-	C "github.com/sagernet/sing-box/constant"
-	"github.com/sagernet/sing-box/log"
-	"github.com/sagernet/sing-box/option"
+	"github.com/pasadizo-net/pasadizo/adapter"
+	C "github.com/pasadizo-net/pasadizo/constant"
+	"github.com/pasadizo-net/pasadizo/log"
+	"github.com/pasadizo-net/pasadizo/option"
 	F "github.com/sagernet/sing/common/format"
 	"github.com/sagernet/sing/common/logger"
 )

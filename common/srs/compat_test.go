@@ -9,7 +9,7 @@ import (
 	"testing"
 	"unsafe"
 
-	"github.com/sagernet/sing-box/common/ipset"
+	"github.com/pasadizo-net/pasadizo/common/ipset"
 	M "github.com/sagernet/sing/common/metadata"
 	"github.com/sagernet/sing/common/varbin"
 

@@ -3,16 +3,16 @@
 package include
 
 import (
-	"github.com/sagernet/sing-box/adapter/inbound"
-	"github.com/sagernet/sing-box/adapter/outbound"
-	"github.com/sagernet/sing-box/adapter/service"
-	"github.com/sagernet/sing-box/dns"
-	"github.com/sagernet/sing-box/dns/transport/quic"
-	"github.com/sagernet/sing-box/protocol/hysteria"
-	"github.com/sagernet/sing-box/protocol/hysteria2"
-	_ "github.com/sagernet/sing-box/protocol/naive/quic"
-	"github.com/sagernet/sing-box/protocol/tuic"
-	_ "github.com/sagernet/sing-box/transport/v2rayquic"
+	"github.com/pasadizo-net/pasadizo/adapter/inbound"
+	"github.com/pasadizo-net/pasadizo/adapter/outbound"
+	"github.com/pasadizo-net/pasadizo/adapter/service"
+	"github.com/pasadizo-net/pasadizo/dns"
+	"github.com/pasadizo-net/pasadizo/dns/transport/quic"
+	"github.com/pasadizo-net/pasadizo/protocol/hysteria"
+	"github.com/pasadizo-net/pasadizo/protocol/hysteria2"
+	_ "github.com/pasadizo-net/pasadizo/protocol/naive/quic"
+	"github.com/pasadizo-net/pasadizo/protocol/tuic"
+	_ "github.com/pasadizo-net/pasadizo/transport/v2rayquic"
 )
 
 func registerQUICInbounds(registry *inbound.Registry) {

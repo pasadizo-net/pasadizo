@@ -5,16 +5,16 @@ package include
 import (
 	"context"
 
-	"github.com/sagernet/sing-box/adapter"
-	"github.com/sagernet/sing-box/adapter/certificate"
-	"github.com/sagernet/sing-box/adapter/endpoint"
-	"github.com/sagernet/sing-box/adapter/inbound"
-	"github.com/sagernet/sing-box/adapter/outbound"
-	"github.com/sagernet/sing-box/adapter/service"
-	C "github.com/sagernet/sing-box/constant"
-	"github.com/sagernet/sing-box/dns"
-	"github.com/sagernet/sing-box/log"
-	"github.com/sagernet/sing-box/option"
+	"github.com/pasadizo-net/pasadizo/adapter"
+	"github.com/pasadizo-net/pasadizo/adapter/certificate"
+	"github.com/pasadizo-net/pasadizo/adapter/endpoint"
+	"github.com/pasadizo-net/pasadizo/adapter/inbound"
+	"github.com/pasadizo-net/pasadizo/adapter/outbound"
+	"github.com/pasadizo-net/pasadizo/adapter/service"
+	C "github.com/pasadizo-net/pasadizo/constant"
+	"github.com/pasadizo-net/pasadizo/dns"
+	"github.com/pasadizo-net/pasadizo/log"
+	"github.com/pasadizo-net/pasadizo/option"
 	E "github.com/sagernet/sing/common/exceptions"
 )
 

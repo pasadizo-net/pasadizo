@@ -3,8 +3,8 @@ package adapter
 import (
 	"context"
 
-	"github.com/sagernet/sing-box/log"
-	"github.com/sagernet/sing-box/option"
+	"github.com/pasadizo-net/pasadizo/log"
+	"github.com/pasadizo-net/pasadizo/option"
 )
 
 type Service interface {

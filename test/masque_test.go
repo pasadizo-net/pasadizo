@@ -14,8 +14,8 @@ import (
 	"testing"
 	"time"
 
-	C "github.com/sagernet/sing-box/constant"
-	"github.com/sagernet/sing-box/option"
+	C "github.com/pasadizo-net/pasadizo/constant"
+	"github.com/pasadizo-net/pasadizo/option"
 	"github.com/sagernet/sing/common"
 	"github.com/sagernet/sing/common/auth"
 	"github.com/sagernet/sing/common/json/badoption"

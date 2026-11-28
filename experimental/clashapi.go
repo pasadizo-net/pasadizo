@@ -4,9 +4,9 @@ import (
 	"context"
 	"os"
 
-	"github.com/sagernet/sing-box/adapter"
-	"github.com/sagernet/sing-box/log"
-	"github.com/sagernet/sing-box/option"
+	"github.com/pasadizo-net/pasadizo/adapter"
+	"github.com/pasadizo-net/pasadizo/log"
+	"github.com/pasadizo-net/pasadizo/option"
 )
 
 type ClashServerConstructor = func(ctx context.Context, logFactory log.ObservableFactory, options option.ClashAPIOptions) (adapter.LifecycleService, error)

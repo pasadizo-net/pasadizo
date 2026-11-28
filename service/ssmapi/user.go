@@ -3,7 +3,7 @@ package ssmapi
 import (
 	"sync"
 
-	"github.com/sagernet/sing-box/adapter"
+	"github.com/pasadizo-net/pasadizo/adapter"
 	E "github.com/sagernet/sing/common/exceptions"
 )
 

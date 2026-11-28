@@ -21,9 +21,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pasadizo-net/pasadizo/adapter"
+	"github.com/pasadizo-net/pasadizo/option"
 	gliderssh "github.com/sagernet/gliderssh"
-	"github.com/sagernet/sing-box/adapter"
-	"github.com/sagernet/sing-box/option"
 	E "github.com/sagernet/sing/common/exceptions"
 	"github.com/sagernet/sing/common/logger"
 	M "github.com/sagernet/sing/common/metadata"

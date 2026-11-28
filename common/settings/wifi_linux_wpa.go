@@ -13,7 +13,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/sagernet/sing-box/adapter"
+	"github.com/pasadizo-net/pasadizo/adapter"
 )
 
 var wpaSocketCounter atomic.Uint64

@@ -5,7 +5,7 @@ package route
 import (
 	"os"
 
-	"github.com/sagernet/sing-box/adapter"
+	"github.com/pasadizo-net/pasadizo/adapter"
 	"github.com/sagernet/sing/common/logger"
 )
 

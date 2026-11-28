@@ -4,7 +4,7 @@ import (
 	"context"
 	"net/netip"
 
-	"github.com/sagernet/sing-box/option"
+	"github.com/pasadizo-net/pasadizo/option"
 	"github.com/sagernet/sing-tun"
 	"github.com/sagernet/sing/common/logger"
 )

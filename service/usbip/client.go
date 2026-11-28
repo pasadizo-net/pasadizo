@@ -5,12 +5,12 @@ package usbip
 import (
 	"context"
 
-	"github.com/sagernet/sing-box/adapter"
-	boxService "github.com/sagernet/sing-box/adapter/service"
-	"github.com/sagernet/sing-box/common/dialer"
-	C "github.com/sagernet/sing-box/constant"
-	"github.com/sagernet/sing-box/log"
-	"github.com/sagernet/sing-box/option"
+	"github.com/pasadizo-net/pasadizo/adapter"
+	boxService "github.com/pasadizo-net/pasadizo/adapter/service"
+	"github.com/pasadizo-net/pasadizo/common/dialer"
+	C "github.com/pasadizo-net/pasadizo/constant"
+	"github.com/pasadizo-net/pasadizo/log"
+	"github.com/pasadizo-net/pasadizo/option"
 	"github.com/sagernet/sing-usbip"
 	E "github.com/sagernet/sing/common/exceptions"
 )

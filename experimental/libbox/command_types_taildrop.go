@@ -3,7 +3,7 @@ package libbox
 import (
 	"os"
 
-	"github.com/sagernet/sing-box/daemon"
+	"github.com/pasadizo-net/pasadizo/daemon"
 )
 
 const TaildropChunkSize = daemon.TaildropChunkSize

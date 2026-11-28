@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sagernet/sing-box/log"
+	"github.com/pasadizo-net/pasadizo/log"
 	"github.com/sagernet/sing/common/control"
 	F "github.com/sagernet/sing/common/format"
 

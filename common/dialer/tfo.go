@@ -9,7 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/sagernet/sing-box/common/listener"
+	"github.com/pasadizo-net/pasadizo/common/listener"
 	"github.com/sagernet/sing/common"
 	"github.com/sagernet/sing/common/bufio"
 	M "github.com/sagernet/sing/common/metadata"

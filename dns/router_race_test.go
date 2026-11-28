@@ -8,11 +8,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sagernet/sing-box/adapter"
-	C "github.com/sagernet/sing-box/constant"
-	"github.com/sagernet/sing-box/log"
-	"github.com/sagernet/sing-box/option"
-	R "github.com/sagernet/sing-box/route/rule"
+	"github.com/pasadizo-net/pasadizo/adapter"
+	C "github.com/pasadizo-net/pasadizo/constant"
+	"github.com/pasadizo-net/pasadizo/log"
+	"github.com/pasadizo-net/pasadizo/option"
+	R "github.com/pasadizo-net/pasadizo/route/rule"
 
 	mDNS "github.com/miekg/dns"
 	"github.com/stretchr/testify/require"

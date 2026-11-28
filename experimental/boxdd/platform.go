@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/sagernet/sing-box/adapter"
-	"github.com/sagernet/sing-box/daemon"
+	"github.com/pasadizo-net/pasadizo/adapter"
+	"github.com/pasadizo-net/pasadizo/daemon"
 )
 
 type daemonPlatform interface {

@@ -2,7 +2,7 @@
 
 package tailssh
 
-import "github.com/sagernet/sing-box/adapter"
+import "github.com/pasadizo-net/pasadizo/adapter"
 
 func selectShellBackend(platformInterface adapter.PlatformInterface) shellBackend {
 	return &platformShellBackend{platform: platformInterface}

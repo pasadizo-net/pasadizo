@@ -10,9 +10,9 @@ import (
 	"sync/atomic"
 	"syscall"
 
-	"github.com/sagernet/sing-box/adapter"
-	"github.com/sagernet/sing-box/common/settings"
-	"github.com/sagernet/sing-box/option"
+	"github.com/pasadizo-net/pasadizo/adapter"
+	"github.com/pasadizo-net/pasadizo/common/settings"
+	"github.com/pasadizo-net/pasadizo/option"
 	"github.com/sagernet/sing/common"
 	"github.com/sagernet/sing/common/control"
 	E "github.com/sagernet/sing/common/exceptions"

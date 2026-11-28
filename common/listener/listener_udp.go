@@ -8,8 +8,8 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/sagernet/sing-box/adapter"
-	"github.com/sagernet/sing-box/common/redir"
+	"github.com/pasadizo-net/pasadizo/adapter"
+	"github.com/pasadizo-net/pasadizo/common/redir"
 	"github.com/sagernet/sing/common/buf"
 	sBufio "github.com/sagernet/sing/common/bufio"
 	"github.com/sagernet/sing/common/control"

@@ -5,8 +5,8 @@ import (
 	"net/netip"
 	"os"
 
+	"github.com/pasadizo-net/pasadizo/adapter"
 	"github.com/sagernet/bbolt"
-	"github.com/sagernet/sing-box/adapter"
 	"github.com/sagernet/sing/common/logger"
 	M "github.com/sagernet/sing/common/metadata"
 )

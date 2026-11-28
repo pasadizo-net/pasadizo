@@ -1,4 +1,4 @@
-module github.com/sagernet/sing-box
+module github.com/pasadizo-net/pasadizo
 
 go 1.26.11
 

@@ -3,8 +3,8 @@
 package include
 
 import (
-	"github.com/sagernet/sing-box/adapter/endpoint"
-	"github.com/sagernet/sing-box/protocol/wireguard"
+	"github.com/pasadizo-net/pasadizo/adapter/endpoint"
+	"github.com/pasadizo-net/pasadizo/protocol/wireguard"
 )
 
 func registerWireGuardEndpoint(registry *endpoint.Registry) {
