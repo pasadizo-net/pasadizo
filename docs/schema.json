@@ -6155,6 +6155,15 @@
         }
       ]
     },
+    "Hysteria2InboundMultipath": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
     "Hysteria2InboundRealm": {
       "type": "object",
       "properties": {
@@ -6189,6 +6198,129 @@
         },
         "stun_domain_resolver": {
           "$ref": "#/$defs/DomainResolver"
+        }
+      },
+      "additionalProperties": false
+    },
+    "Hysteria2MultipathPath": {
+      "type": "object",
+      "properties": {
+        "detour": {
+          "type": "string",
+          "x-tag-reference": "outbound"
+        },
+        "bind_interface": {
+          "type": "string"
+        },
+        "inet4_bind_address": {
+          "$ref": "#/$defs/IPAddress"
+        },
+        "inet6_bind_address": {
+          "$ref": "#/$defs/IPAddress"
+        },
+        "bind_address_no_port": {
+          "type": "boolean"
+        },
+        "protect_path": {
+          "type": "string"
+        },
+        "routing_mark": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "reuse_addr": {
+          "type": "boolean"
+        },
+        "netns": {
+          "type": "string",
+          "x-tag-reference": "network_namespace"
+        },
+        "connect_timeout": {
+          "$ref": "#/$defs/Duration"
+        },
+        "tcp_fast_open": {
+          "type": "boolean"
+        },
+        "tcp_multi_path": {
+          "type": "boolean"
+        },
+        "disable_tcp_keep_alive": {
+          "type": "boolean"
+        },
+        "tcp_keep_alive": {
+          "$ref": "#/$defs/Duration"
+        },
+        "tcp_keep_alive_interval": {
+          "$ref": "#/$defs/Duration"
+        },
+        "udp_fragment": {
+          "type": "boolean"
+        },
+        "domain_resolver": {
+          "$ref": "#/$defs/DomainResolver"
+        },
+        "network_strategy": {
+          "type": "string",
+          "enum": [
+            "default",
+            "fallback",
+            "hybrid"
+          ]
+        },
+        "network_type": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/InterfaceType"
+            },
+            {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/InterfaceType"
+              }
+            }
+          ]
+        },
+        "fallback_network_type": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/InterfaceType"
+            },
+            {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/InterfaceType"
+              }
+            }
+          ]
+        },
+        "fallback_delay": {
+          "$ref": "#/$defs/Duration"
+        },
+        "backup": {
+          "type": "boolean"
+        },
+        "up_mbps": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false
+    },
+    "Hysteria2OutboundMultipath": {
+      "type": "object",
+      "properties": {
+        "paths": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Hysteria2MultipathPath"
+          }
         }
       },
       "additionalProperties": false
@@ -7104,6 +7236,9 @@
             },
             "realm": {
               "$ref": "#/$defs/Hysteria2InboundRealm"
+            },
+            "multipath": {
+              "$ref": "#/$defs/Hysteria2InboundMultipath"
             }
           },
           "required": [
@@ -12801,6 +12936,9 @@
             },
             "realm": {
               "$ref": "#/$defs/Hysteria2Realm"
+            },
+            "multipath": {
+              "$ref": "#/$defs/Hysteria2OutboundMultipath"
             }
           },
           "required": [
