@@ -12038,6 +12038,9 @@
                 "x-tag-reference": "outbound"
               }
             },
+            "stall_timeout": {
+              "$ref": "#/$defs/Duration"
+            },
             "interrupt_exist_connections": {
               "type": "boolean"
             }
@@ -12936,6 +12939,9 @@
               "$ref": "#/$defs/Duration"
             },
             "first_byte_timeout": {
+              "$ref": "#/$defs/Duration"
+            },
+            "stall_timeout": {
               "$ref": "#/$defs/Duration"
             },
             "idle_timeout": {

@@ -25,6 +25,8 @@ jobs:
         run: |
           .github/pasadizo/rename.sh
           git diff --exit-code
+      - name: The replaced sing-quic contains the commit sing-box pins
+        run: .github/pasadizo/check-sing-quic.sh
       - name: Build (linux amd64 and arm64, release tags)
         run: |
           for arch in amd64 arm64; do

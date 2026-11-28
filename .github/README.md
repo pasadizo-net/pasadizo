@@ -25,6 +25,8 @@ Pasadizo ("secret passage" in Spanish) is a proxy platform derived from [sing-bo
 | `fallback` outbound group: the first healthy member in a fixed order, with `recover_after` before it moves back up | `"type": "fallback"` | [docs/configuration/outbound/fallback.md](../docs/configuration/outbound/fallback.md) |
 | Lazy members of a `fallback` group: a backup on a metered or slow link is tested only while no member before it is available, so it costs no traffic while the others work | `"lazy": ["lte"]` on a `fallback` outbound | [docs/configuration/outbound/fallback.md](../docs/configuration/outbound/fallback.md#lazy) |
 | First byte timeout for the `loadbalance` circuit breaker: a connection that was written to and got no byte back counts as a failure of its member, which is the only failure a Hysteria2 or TUIC member on a dead path shows | `"first_byte_timeout": "5s"` on a `loadbalance` outbound | [docs/configuration/outbound/loadbalance.md](../docs/configuration/outbound/loadbalance.md#first_byte_timeout) |
+| Stall timeout for `loadbalance` and `fallback`: a Hysteria2 member whose QUIC connection sends packets and receives none is unavailable at once, found from the connection's own counters without test traffic | `"stall_timeout": "5s"` | [docs/configuration/outbound/loadbalance.md](../docs/configuration/outbound/loadbalance.md#stall_timeout) |
+| Round trip time, packets sent, received and lost, and the number of open QUIC connections per Hysteria2 outbound, in the Prometheus metrics | `sing_box_outbound_transport_*` | [docs/configuration/experimental/metrics.md](../docs/configuration/experimental/metrics.md#metrics) |
 | A reload (`SIGHUP`) that changes only route and DNS rules replaces them in the running instance and keeps every connection | `kill -HUP`, `systemctl reload` | [docs/configuration/reload.md](../docs/configuration/reload.md) |
 | `gost` outbound: a node of a gost v3 chain, an `http` handler on an `mtls` or `mtcp` listener (smux, HTTP `CONNECT`), chained with `detour` | `"type": "gost"` | [docs/configuration/outbound/gost.md](../docs/configuration/outbound/gost.md) |
 | Outbound groups do not fail over when the proxy server answered but could not reach the destination | `adapter.DestinationError` | [docs/configuration/outbound/gost.md](../docs/configuration/outbound/gost.md) |
@@ -40,6 +42,10 @@ Pasadizo ("secret passage" in Spanish) is a proxy platform derived from [sing-bo
 | Cloudflare WARP mode for the MASQUE client (incomplete: the QUIC library still refuses the extended CONNECT) | `masque-client` endpoint | [docs/configuration/endpoint/masque-client.md](../docs/configuration/endpoint/masque-client.md) |
 
 Each feature is one commit on top of upstream, so it can be read, reverted or offered upstream on its own.
+
+## sing-quic
+
+Pasadizo builds with its own [sing-quic](https://github.com/pasadizo-net/sing-quic), upstream's library plus the changes Pasadizo needs in it (today: connection statistics of the Hysteria2 client, and Careful Resume in its BBR sender). `go.mod` takes it with a `replace` of `github.com/sagernet/sing-quic`, so no import path changes. The `require` line keeps the commit sing-box pins; `.github/pasadizo/check-sing-quic.sh`, which CI runs, fails when the replaced commit does not contain it, because the build would then pass on older QUIC code than sing-box asks for. After an upstream sync moves the pin: merge the sync pull request of `pasadizo-net/sing-quic`, then move the `replace` to the new commit of its `main` (the script's header has the command).
 
 ## Releases
 

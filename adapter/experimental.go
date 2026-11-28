@@ -173,6 +173,26 @@ type ConnectionFailureReporter interface {
 	ReportConnectionFailure(network string, member Outbound, destination M.Socksaddr, err error)
 }
 
+// TransportStats are the counters of one transport connection that an
+// outbound keeps open to its server, for example a QUIC connection.
+type TransportStats struct {
+	PacketsSent     uint64
+	PacketsReceived uint64
+	PacketsLost     uint64
+	BytesSent       uint64
+	BytesReceived   uint64
+	SmoothedRTT     time.Duration
+}
+
+// OutboundWithTransportStats is an outbound that carries its streams in a few
+// long-lived transport connections and reports on each one that is open.
+// A group reads it to find a dead path without sending test traffic: packets
+// go out and none come back.
+type OutboundWithTransportStats interface {
+	Outbound
+	TransportStats() []TransportStats
+}
+
 // FirstByteWatcher is a ConnectionFailureReporter that also counts, as a
 // failed connection of a member, a TCP connection that was opened and written
 // to but got no byte back within FirstByteTimeout. A proxy protocol that

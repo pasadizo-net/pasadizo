@@ -43,6 +43,11 @@ func NewFallback(ctx context.Context, router adapter.Router, logger log.ContextL
 		interruptExternalConnections: options.InterruptExistConnections,
 		fallback:                     newFallbackStrategy(recoverAfter),
 		lazy:                         options.Lazy,
+		stallTimeout:                 time.Duration(options.StallTimeout),
+	}
+	err := checkStallTimeout(outbound.stallTimeout)
+	if err != nil {
+		return nil, err
 	}
 	if len(outbound.tags) == 0 {
 		return nil, E.New("missing tags")
