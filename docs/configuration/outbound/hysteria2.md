@@ -348,10 +348,10 @@ All paths carry one QUIC connection, so a path that dies does not close a TCP co
 A path that stops acknowledging packets for one probe timeout (PTO, a few round trips) is marked failed, its packets in flight are sent again on the other paths, and it is probed with a PING about once a second until it answers again.
 A path that cannot be opened, or that the server closes, is opened again after 2 seconds, then after up to a minute.
 
-Each path has its own congestion controller of the kind the outbound uses (Brutal with `up_mbps` and `down_mbps`, BBR without them).
+Each path has its own congestion controller.
+The first path uses the kind the outbound uses (Brutal with `up_mbps` and `down_mbps`, BBR without them); the paths in `paths` use BBR, or Brutal at their own `up_mbps` when the outbound uses Brutal and the path sets one, and the server sends on them with BBR.
+Brutal never backs off, so Brutal at the outbound's bandwidth on every path would send that bandwidth once per path.
 Both endpoints send on the path with the lowest round trip time first and use the other available paths when that one is limited by its congestion controller, so the paths are aggregated.
-Brutal sends at its configured bandwidth on every path, also on a path that cannot carry it, which then loses most of its packets and holds up the streams spread over both paths.
-Aggregate with BBR, or give a slower path its own `up_mbps`; the server sends at `down_mbps` on every path, so leave `down_mbps` unset to aggregate downloads.
 
 Requires `disable_chrome_parrot`: the imitated Chrome handshake uses zero-length connection IDs, which the multipath extension forbids.
 Conflicts with `server_ports` and `realm`.
@@ -372,7 +372,7 @@ The server follows the same rule, so no traffic goes over a metered backup path 
 
 The bandwidth Brutal sends at on this path, in Mbps, when the outbound uses Brutal.
 
-The outbound's `up_mbps` is used if empty, and it is also the upper limit.
+The path uses BBR if empty. The outbound's `up_mbps` is the upper limit.
 
 ### Dial Fields
 
