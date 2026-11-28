@@ -232,6 +232,6 @@ require (
 	zombiezen.com/go/capnproto2 v2.18.2+incompatible // indirect
 )
 
-replace github.com/sagernet/sing-quic => github.com/pasadizo-net/sing-quic v0.0.0-20261128121351-62115f074c4b
+replace github.com/sagernet/sing-quic => github.com/pasadizo-net/sing-quic v0.0.0-20261128122317-e7cda82eb056
 
-replace github.com/sagernet/quic-go => github.com/pasadizo-net/quic-go v0.0.0-20261128121317-b9ea07a8f277
+replace github.com/sagernet/quic-go => github.com/pasadizo-net/quic-go v0.0.0-20261128121951-bb78f72c1784
